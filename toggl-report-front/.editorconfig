@@ -1,0 +1,25 @@
+root = true
+
+[*]
+end_of_line = crlf
+indent_style = space
+indent_size = 4
+
+[*.ts]
+charset = utf-8
+
+[*.tsx]
+charset = utf-8
+
+[*.html]
+charset = utf-8
+
+[*.css]
+charset = utf-8
+
+[*.json]
+charset = utf-8
+
+[*.md]
+end_of_line = lf
+charset = utf-8
