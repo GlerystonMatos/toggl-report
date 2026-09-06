@@ -9,6 +9,7 @@ interface DialogoConfirmacaoProps {
     textoConfirmar?: string;
     textoCancelar?: string;
     corConfirmar?: 'primary' | 'error';
+    focoNoCancelar?: boolean;
     carregando?: boolean;
     onConfirmar: () => void;
     onCancelar?: () => void;
@@ -21,6 +22,7 @@ export function DialogoConfirmacao({
     textoConfirmar = 'OK',
     textoCancelar,
     corConfirmar = 'primary',
+    focoNoCancelar = false,
     carregando = false,
     onConfirmar,
     onCancelar,
@@ -33,7 +35,7 @@ export function DialogoConfirmacao({
             </DialogContent>
             <DialogActions>
                 {textoCancelar ? (
-                    <BotaoComCarregamento onClick={onCancelar} disabled={carregando}>
+                    <BotaoComCarregamento onClick={onCancelar} disabled={carregando} autoFocus={focoNoCancelar}>
                         {textoCancelar}
                     </BotaoComCarregamento>
                 ) : undefined}
@@ -42,7 +44,7 @@ export function DialogoConfirmacao({
                     color={corConfirmar}
                     carregando={carregando}
                     onClick={onConfirmar}
-                    autoFocus>
+                    autoFocus={!focoNoCancelar}>
                     {textoConfirmar}
                 </BotaoComCarregamento>
             </DialogActions>

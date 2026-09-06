@@ -7,7 +7,7 @@ Frontend em **React 19 + TypeScript + MUI** (via Vite) que consome a [Web API do
 ## Requisitos
 
 - [Node.js](https://nodejs.org/) 20+ e `npm`
-- A [Web API](../toggl-report-back/README.md#web-api-togglreportapi) rodando em `http://localhost:5180` (sem ela, as chamadas falham com um aviso na tela — o app não trava)
+- A [Web API](../toggl-report-back/README.md#web-api-togglreportapi) rodando e alcançável no endereço configurado (padrão `http://localhost:5180`; sem ela, as chamadas falham com um aviso na tela — o app não trava)
 
 ## Como rodar
 
@@ -15,6 +15,25 @@ Frontend em **React 19 + TypeScript + MUI** (via Vite) que consome a [Web API do
 npm install
 npm run dev       # http://localhost:5173, com hot reload
 ```
+
+### Configurando o endereço do backend
+
+O endereço da Web API é lido da variável de ambiente `VITE_API_URL` (mecanismo
+padrão do Vite — só tem efeito se estiver definida **antes** do build/dev
+server subir). Sem ela, o app usa `http://localhost:5180`.
+
+Para desenvolvimento local com um endereço diferente, copie `.env.example`
+para `.env` e ajuste o valor:
+
+```bash
+cp .env.example .env
+```
+
+Via Docker (`docker-compose.yml` na raiz do repositório), a variável é passada
+como **build arg** do serviço `toggl_report_web`, apontando para a porta que
+a Api publica no host (`http://localhost:5003`) — não para o nome do serviço
+na rede interna do Compose, já que as chamadas partem do navegador do
+usuário, não de dentro do container.
 
 Outros scripts:
 
@@ -28,7 +47,7 @@ npm run lint      # oxlint
 
 Navegação por `Tabs` (MUI): **"Usuários"** (aba fixa, selecionada por padrão na abertura), **"Relatório"** e **"Gant"** — os dois últimos com seu próprio `Stepper` não-linear de 3 etapas, cada uma só liberada depois que a anterior tem o que ela precisa.
 
-**Aba "Usuários"** — lista/adiciona/edita/remove usuários e tokens (`/api/usuarios`), com validação do token contra o Toggl antes de salvar (oferece "salvar mesmo assim" se a validação falhar, igual ao console). Cada usuário tem uma **sigla** e uma **cor** (usadas no Gantt) e um checkbox **"selecionado"** — só usuários selecionados entram na próxima consulta, seja do relatório ou do Gantt. Diálogos de confirmação (`DialogoConfirmacao`) antes de excluir e depois de criar/editar/excluir.
+**Aba "Usuários"** — lista/adiciona/edita/remove usuários e tokens (`/api/usuarios`), com validação do token contra o Toggl antes de salvar (oferece "salvar mesmo assim" se a validação falhar, igual ao console). Cada usuário tem uma **sigla** e uma **cor** (usadas no Gantt) e um checkbox **"selecionado"** — só usuários selecionados entram na próxima consulta, seja do relatório ou do Gantt. Diálogo de confirmação (`DialogoConfirmacao`) só antes de excluir; sucesso/aviso/erro de criar/editar/excluir usam a notificação global (`useNotificacao`), o mesmo padrão de "Parâmetros salvos" do relatório/Gantt.
 
 **Fluxo "Relatório"**:
 1. **Parâmetros** — agrupamento (descrição/tag/ambos), tags detalhadas, período. Carrega `GET /api/configuracao` ao abrir e salva com `PUT /api/configuracao`.
@@ -39,7 +58,7 @@ Navegação por `Tabs` (MUI): **"Usuários"** (aba fixa, selecionada por padrão
 
 `ConsultaPanel` é o **mesmo componente** nos dois fluxos (recebe `resultado`/`consultando`/`executar` como props, e `agrupamento`/`tagsDetalhadas` como opcionais) — não há duplicação entre relatório e Gantt.
 
-Um rodapé (`RodapeDownloads`) linka os dois endpoints de download dos `.ini` cru e mostra a versão do app.
+Um rodapé (`RodapeDownloads`) linka o download da pasta `dados/` inteira (compactada em `.zip`) e mostra a versão do app.
 
 ## Estrutura
 

@@ -1,0 +1,56 @@
+services:
+    toggl_report_api:
+        image: toggl-report-api:latest
+        restart: on-failure
+        container_name: toggl-report-api
+        build:
+            context: ./toggl-report-back
+            dockerfile: Dockerfile
+        ports:
+            - 5003:8080
+            - 5004:443
+        volumes:
+            - ./dados:/app/dados
+            - ./certificado:/app/certificado
+        environment:
+            - TZ=America/Sao_Paulo
+            - ASPNETCORE_HTTPS_PORT=443
+            - ASPNETCORE_URLS=https://+:443;http://+:8080
+            - Kestrel__Certificates__Default__Password=1234
+            - Kestrel__Certificates__Default__Path=/app/certificado/certificado.pfx
+        healthcheck:
+            test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+            interval: 30s
+            timeout: 3s
+            retries: 3
+        networks:
+            - toggl_report_net
+
+    toggl_report_web:
+        image: toggl-report-web:latest
+        restart: on-failure
+        container_name: toggl-report-web
+        depends_on:
+            toggl_report_api:
+                condition: service_healthy
+        build:
+            context: ./toggl-report-front
+            dockerfile: Dockerfile
+            args:
+                VITE_API_URL: http://localhost:5003
+        ports:
+            - 3002:80
+        healthcheck:
+            test: ["CMD", "wget", "-qO-", "http://localhost/"]
+            interval: 30s
+            timeout: 3s
+            retries: 3
+        networks:
+            - toggl_report_net
+
+networks:
+    toggl_report_net:
+        name: toggl_report_net
+
+# docker-compose down ; docker rmi $(docker images | grep 'toggl-report') ; docker-compose up -d
+# docker-compose down ; docker-compose up -d

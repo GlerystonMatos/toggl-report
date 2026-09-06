@@ -1,4 +1,4 @@
-# toggl-report
+# toggl-report  <img alt="caronte" height="20" src="https://github.com/GlerystonMatos/toggl-report/blob/main/toggl-report.png">
 
 Conjunto de aplicações que geram relatórios de tempo trabalhado a partir da **API v9 do Toggl Track**, agrupando por descrição e/ou tag, por usuário, em um período informado — incluindo uma visualização em **Gráfico de Gantt** por usuário/dia (só na versão web).
 
@@ -28,9 +28,22 @@ cd toggl-report-front && npm install && npm run dev
 
 O console pode ser usado independentemente da API/frontend — veja o [README do back-end](./toggl-report-back/README.md) para rodá-lo sozinho.
 
+## Como rodar com Docker
+
+```bash
+docker-compose up -d --build
+```
+
+Sobe a Api em `http://localhost:5003` e o frontend em `http://localhost:3002`.
+O endereço da Api que o frontend consome é fixado **no build da imagem**
+(`VITE_API_URL`, ver [README do frontend](./toggl-report-front/README.md#configurando-o-endereço-do-backend)) —
+para apontar para outro endereço, ajuste `args.VITE_API_URL` do serviço
+`toggl_report_web` em `docker-compose.yml` e rode `docker-compose up -d --build`
+de novo.
+
 ## Segurança
 
-Os arquivos `TogglReport.ini`/`ToggleData.ini` (gerados na pasta `dados/` de cada executável) guardam API Tokens do Toggl em **texto puro** e nunca são versionados (`.gitignore`). A Web API não tem autenticação — destinada a uso exclusivamente local.
+Os arquivos `TogglRelatorioParametros.ini`/`TogglRelatorioData.ini` (gerados na pasta `dados/` de cada executável) guardam API Tokens do Toggl em **texto puro** e nunca são versionados (`.gitignore`). A Web API não tem autenticação — destinada a uso exclusivamente local.
 
 ## Licença
 

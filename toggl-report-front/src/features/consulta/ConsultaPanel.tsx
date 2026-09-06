@@ -3,9 +3,14 @@ import type { ReactNode } from 'react';
 import { formatarPeriodo } from '../../utils/datas';
 import { rotularAgrupamento } from '../../utils/rotulos';
 import { useNotificacao } from '../../hooks/useNotificacao';
+import { DialogoConfirmacao } from '../../components/DialogoConfirmacao';
 import { BotaoComCarregamento } from '../../components/BotaoComCarregamento';
 
-import type { Agrupamento, ConsultarResponse, UsuarioResumo } from '../../api/tipos';
+import type {
+    Agrupamento,
+    UsuarioResumo,
+    ConsultarResponse,
+} from '../../api/tipos';
 
 import {
     Card,
@@ -50,6 +55,7 @@ export function ConsultaPanel({
 }: ConsultaPanelProps): ReactNode {
     const { notificarErro } = useNotificacao();
     const [forcarConsultaApi, setForcarConsultaApi] = useState(false);
+    const [confirmandoConsultaForcada, setConfirmandoConsultaForcada] = useState(false);
 
     async function consultarAgora(): Promise<void> {
         try {
@@ -60,6 +66,19 @@ export function ConsultaPanel({
         } catch (erro) {
             notificarErro(erro, 'Não foi possível consultar o Toggl');
         }
+    }
+
+    function aoClicarConsultar(): void {
+        if (forcarConsultaApi) {
+            setConfirmandoConsultaForcada(true);
+            return;
+        }
+        void consultarAgora();
+    }
+
+    function confirmarConsultaForcada(): void {
+        setConfirmandoConsultaForcada(false);
+        void consultarAgora();
     }
 
     return (
@@ -114,7 +133,7 @@ export function ConsultaPanel({
                         <BotaoComCarregamento
                             variant="contained"
                             carregando={consultando}
-                            onClick={() => void consultarAgora()}>
+                            onClick={aoClicarConsultar}>
                             Consultar
                         </BotaoComCarregamento>
                     </Stack>
@@ -124,6 +143,17 @@ export function ConsultaPanel({
                     ) : undefined}
                 </Stack>
             </CardContent>
+
+            <DialogoConfirmacao
+                aberto={confirmandoConsultaForcada}
+                titulo="Forçar nova consulta à API?"
+                mensagem="Isso ignora o cache local e consulta o Toggl de novo, consumindo o limite de 30 requisições/hora por usuário. Deseja continuar?"
+                textoConfirmar="Consultar mesmo assim"
+                textoCancelar="Não"
+                focoNoCancelar
+                onConfirmar={confirmarConsultaForcada}
+                onCancelar={() => setConfirmandoConsultaForcada(false)}
+            />
         </Card>
     );
 }

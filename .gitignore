@@ -1,0 +1,13 @@
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+certificado/
+dados/
+dados.rar
+
+TogglRelatorioParametros.ini
+TogglRelatorioData.ini
+TogglGantParametros.ini
+TogglGantData.ini

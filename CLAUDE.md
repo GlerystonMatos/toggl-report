@@ -27,7 +27,7 @@ frontend web), compartilhando a mesma lógica de negócio e o mesmo formato de
 persistência em INI.
 
 - **Console** (`toggl-report-back/TogglReport.Console`, assembly `TogglReport`): totalmente interativo, um
-  assistente guia a configuração e persiste tudo em `dados/TogglReport.ini`, ao
+  assistente guia a configuração e persiste tudo em `dados/TogglRelatorioParametros.ini`, ao
   lado do executável.
 - **Web API** (`toggl-report-back/TogglReport.Api`): mesmas funcionalidades por
   HTTP, sem autenticação, documentada via Swagger, com sua **própria** pasta
@@ -39,7 +39,7 @@ persistência em INI.
   fluxo do console (parâmetros → usuários/tokens → consulta → relatório → busca).
 - **Multiusuário**: cada usuário tem seu API Token pessoal; o relatório consolida
   todos.
-- **Cache de consulta** (`dados/ToggleData.ini`, ao lado de cada executável):
+- **Cache de consulta** (`dados/TogglRelatorioData.ini`, ao lado de cada executável):
   guarda o retorno cru da última consulta bem-sucedida de cada usuário. Se
   período e usuários da próxima consulta forem iguais, oferece carregar do cache
   (default) em vez de consultar a API de novo; o agrupamento/cálculo sempre roda
@@ -48,12 +48,12 @@ persistência em INI.
   usuário é atingido (ver §3/§6).
 - **Gráfico de Gantt** (só na Web API + frontend, sem equivalente no console):
   segunda visualização dos mesmos dados, com parâmetros (período + tags a
-  detalhar + agrupamento) e cache (`dados/ToggleGantData.ini`) **próprios e
+  detalhar + agrupamento) e cache (`dados/TogglGantData.ini`) **próprios e
   independentes** dos do relatório — a mesma pessoa pode ter um relatório e um
   Gantt configurados com períodos diferentes ao mesmo tempo, e uma consulta
   não invalida a outra. Ver §4.6/§5.5.
 - **Usuário ganhou três campos exclusivos da versão web** (`Sigla`, `Cor`,
-  `Selecionado`) — persistidos no mesmo `TogglReport.ini`, lidos/gravados pelo
+  `Selecionado`) — persistidos no mesmo `TogglRelatorioParametros.ini`, lidos/gravados pelo
   mesmo `CarregadorConfiguracaoIni` que o console usa; o console não tem UI
   para editá-los, mas preserva os valores ao resalvar a configuração (ver
   §2.4). `Selecionado` decide quais usuários entram na **próxima consulta**
@@ -120,7 +120,7 @@ dotnet run --project TogglReport.Console
    pelo terminal); `Tela.BemVindo` (banner) + `Tela.Carregando` (animação ~1 s).
 2. **`GerarRelatoriosEnquantoUsuarioQuiser`** — laço `while (executarNovamente)`:
    1. **`ColetarConfiguracaoConfirmadaAsync`** — laço até o usuário confirmar:
-      - `CarregadorConfiguracaoIni.Carregar(TogglReport.ini)` (uma vez por
+      - `CarregadorConfiguracaoIni.Carregar(TogglRelatorioParametros.ini)` (uma vez por
         ciclo) e um `ConfiguracaoApp` novo.
       - `AssistenteConfiguracao.ColetarAsync(atual, salvos)` — campo a campo:
         **agrupamento** (`EscolherOpcao` + confirmar, ou reaproveitar o salvo),
@@ -131,10 +131,10 @@ dotnet run --project TogglReport.Console
       - Cabeçalho com o resumo, seguido da **lista de usuários selecionados**
         (um por linha, `Tela.ListarUsuariosSelecionados`) → `Confirmar a
         consulta com os parâmetros acima?`. Se recusado, recomeça. Se aceito,
-        grava o `TogglReport.ini` (com `try/catch`).
+        grava o `TogglRelatorioParametros.ini` (com `try/catch`).
    2. **`ObterRegistrosAsync`** — decide entre cache e API (delega para
       `ServicoConsulta`, §3):
-      - Carrega `ToggleData.ini` (`ServicoConsulta.CarregarCacheSeExistente`,
+      - Carrega `TogglRelatorioData.ini` (`ServicoConsulta.CarregarCacheSeExistente`,
         com `try/catch`). Se existe e
         `ServicoConsulta.CacheCorrespondeAosParametros` (mesmo período + mesmo
         conjunto de usuários/tokens), pergunta "Deseja consultar novamente à
@@ -154,7 +154,7 @@ dotnet run --project TogglReport.Console
         **fuso local**, e as bordas são convertidas para UTC
         (`SpecifyKind(…, Local).ToUniversalTime()`); fim inclusivo = 23:59:59
         do último dia. Ao final, `ServicoConsulta.SalvarCache` regrava o
-        `ToggleData.ini` com o retorno cru.
+        `TogglRelatorioData.ini` com o retorno cru.
       - Retorna `(Dictionary<nome,registros>, List<string> ordem)` — mesmo
         formato venha do cache ou da API; o passo seguinte não sabe nem
         precisa saber qual foi a origem.
@@ -262,7 +262,7 @@ cache/rate-limit) vive em `toggl-report-back/TogglReport.Nucleo/` — ver §3.
   ativo e trata o limite que a própria API do Toggl impõe). Console e Web API
   têm contadores **independentes** (processos separados).
 
-### `TogglReport.ini` (exemplo) — em `AppContext.BaseDirectory/dados`
+### `TogglRelatorioParametros.ini` (exemplo) — em `AppContext.BaseDirectory/dados`
 
 ```ini
 [Geral]
@@ -276,7 +276,7 @@ NomeExibicao=Joao Silva
 TokenApi=abcdef1234567890
 ```
 
-### `ToggleData.ini` (exemplo) — em `AppContext.BaseDirectory/dados`
+### `TogglRelatorioData.ini` (exemplo) — em `AppContext.BaseDirectory/dados`
 
 ```ini
 [Geral]
@@ -313,7 +313,7 @@ pasta `dados/`, mesmo formato, sem compartilhar arquivo físico.
   pergunta; API devolve 400).
 - **EOF (stdin fechado, só console)**: `Prompt.LerEntrada` chama
   `Environment.Exit(0)` — o app encerra em vez de entrar em laço.
-- **Falha ao carregar/salvar `ToggleData.ini`/`TogglReport.ini`**:
+- **Falha ao carregar/salvar `TogglRelatorioData.ini`/`TogglRelatorioParametros.ini`**:
   `try/catch (IOException or UnauthorizedAccessException)` — não é fatal; sem
   cache utilizável, o app cai para a consulta normal.
 - **Limite de 30 requisições/hora atingido para um usuário**: usa o
@@ -329,7 +329,7 @@ pasta `dados/`, mesmo formato, sem compartilhar arquivo físico.
   longos podem dar **400** (limite de histórico da conta).
 - **Não resolve nome de projeto/cliente** — só descrição e tag. `IdProjeto`
   existe no DTO mas não é usado.
-- **`TogglReport.ini` e `ToggleData.ini` guardam os tokens em texto puro** —
+- **`TogglRelatorioParametros.ini` e `TogglRelatorioData.ini` guardam os tokens em texto puro** —
   tratados como segredo, ambos no `.gitignore` (ver §8), dentro de `dados/` ao
   lado de cada executável.
 - **`Tela.Inicializar()` mede a largura uma única vez, na abertura**: se o
@@ -352,16 +352,16 @@ tudo que é lógica de negócio ou acesso a INI, independente de qual interface
 ```
 toggl-report-back/TogglReport.Nucleo/
  ├─ Configuracao/
- │   ├─ ConfiguracaoApp.cs         # modelo do TogglReport.ini
+ │   ├─ ConfiguracaoApp.cs         # modelo do TogglRelatorioParametros.ini
  │   ├─ ConfiguracaoUsuario.cs     # Chave / NomeExibicao / TokenApi
- │   ├─ CarregadorConfiguracaoIni.cs  # Carregar / Salvar do dados/TogglReport.ini
- │   ├─ CacheConsulta.cs           # modelo do ToggleData.ini: período + List<UsuarioCacheado>
+ │   ├─ CarregadorConfiguracaoIni.cs  # Carregar / Salvar do dados/TogglRelatorioParametros.ini
+ │   ├─ CacheConsulta.cs           # modelo do TogglRelatorioData.ini: período + List<UsuarioCacheado>
  │   ├─ UsuarioCacheado.cs         # Chave / NomeExibicao / TokenApi / Registros (dado cru)
- │   ├─ CarregadorCacheIni.cs      # Carregar / Salvar do dados/ToggleData.ini
+ │   ├─ CarregadorCacheIni.cs      # Carregar / Salvar do dados/TogglRelatorioData.ini
  │   ├─ AnalisadorIni.cs           # parser de INI compartilhado (Analisar/ObterOuPadrao/ObterOuNulo)
- │   ├─ CaminhosDados.cs           # monta dados/TogglReport.ini, ToggleData.ini, ToggleGantParametros.ini e ToggleGantData.ini a partir de um diretório base
- │   ├─ ConfiguracaoGant.cs        # modelo do ToggleGantParametros.ini: DataInicio/DataFim/TagsSelecionadas/Agrupamento
- │   ├─ CarregadorConfiguracaoGantIni.cs  # Carregar / Salvar do dados/ToggleGantParametros.ini
+ │   ├─ CaminhosDados.cs           # monta dados/TogglRelatorioParametros.ini, TogglRelatorioData.ini, TogglGantParametros.ini e TogglGantData.ini a partir de um diretório base
+ │   ├─ ConfiguracaoGant.cs        # modelo do TogglGantParametros.ini: DataInicio/DataFim/TagsSelecionadas/Agrupamento
+ │   ├─ CarregadorConfiguracaoGantIni.cs  # Carregar / Salvar do dados/TogglGantParametros.ini
  │   └─ ServicoUsuarios.cs         # GerarChaveUnica / NomeEmUso / TokenEmUso / SiglaEmUso / MascararToken
  ├─ Gant/                          # exclusivo do Gantt (nome com um "t" só — ver nota no item 18 do histórico)
  │   ├─ CelulaGant.cs              # record: UsuarioChave/NomeExibicao/Sigla/Cor/Horas de um usuário num dia
@@ -443,11 +443,10 @@ com um método `Map*Endpoints(this WebApplication app, ...)` chamado do
 | `POST` | `/api/consultas` | `ConsultasEndpoints` | `{ dataInicio, dataFim, forcarConsultaApi? }` → cache-first via `ServicoConsulta`; sempre grava o cache ao final |
 | `GET` | `/api/relatorio?dataInicio=&dataFim=` | `RelatorioEndpoints` | 409 se não há cache **exatamente** para esse período; senão `{ dataInicio, dataFim, agrupamento, usuarios: [...] }` |
 | `GET` | `/api/busca?termo=` | `BuscaEndpoints` | 409 se não há cache; senão o `ResultadoBuscaDescricao` do núcleo, serializado direto |
-| `GET` | `/api/dados/download/configuracao` | `DadosEndpoints` | Baixa o `TogglReport.ini` cru (`Results.File`) |
-| `GET` | `/api/dados/download/cache` | `DadosEndpoints` | Baixa o `ToggleData.ini` cru |
+| `GET` | `/api/dados/download` | `DadosEndpoints` | Compacta a pasta `dados/` inteira (todos os arquivos presentes no momento da requisição, sem lista fixa) em `dados.zip` via `System.IO.Compression.ZipArchive` (nativo do .NET, sem pacote NuGet) e devolve o zip; 404 se a pasta não existir ou estiver vazia |
 | `GET` | `/api/gant/parametros` | `GantEndpoints` | `{ dataInicio, dataFim, tagsSelecionadas, agrupamento }` do Gantt (independente do relatório) |
 | `PUT` | `/api/gant/parametros` | `GantEndpoints` | Atualiza os 4 campos acima |
-| `POST` | `/api/gant/consultas` | `GantEndpoints` | Igual a `POST /api/consultas`, mas grava em `ToggleGantData.ini` — reaproveita `ServicoConsulta` inteiro, só troca o caminho do cache |
+| `POST` | `/api/gant/consultas` | `GantEndpoints` | Igual a `POST /api/consultas`, mas grava em `TogglGantData.ini` — reaproveita `ServicoConsulta` inteiro, só troca o caminho do cache |
 | `GET` | `/api/gant?dataInicio=&dataFim=&termo=` | `GantEndpoints` | 409 se não há cache do Gantt para esse período; senão `{ dias, linhas }` já agrupado por `ServicoGant.Montar` — `termo` (opcional) filtra por descrição antes de agrupar |
 
 ### Formato exato das respostas (testado manualmente com `curl`, inclusive com
@@ -506,7 +505,7 @@ sobre o texto cru da descrição).
 | Decisão | Motivo |
 |---|---|
 | **Minimal APIs, não Controllers** | Projeto pequeno e focado (12 rotas); evita o boilerplate de MVC. Um arquivo `Map*Endpoints` por grupo em `Endpoints/`. |
-| **Stateless entre requisições — nunca mantém registros em memória entre chamadas** | Toda leitura de relatório/busca **relê `ToggleData.ini`** via `CarregadorCacheIni`/`ServicoConsulta.CarregarRegistrosDoCache`. Isso evita sessão/estado de servidor e reaproveita o mesmo cache do console sem precisar inventar um mecanismo novo. |
+| **Stateless entre requisições — nunca mantém registros em memória entre chamadas** | Toda leitura de relatório/busca **relê `TogglRelatorioData.ini`** via `CarregadorCacheIni`/`ServicoConsulta.CarregarRegistrosDoCache`. Isso evita sessão/estado de servidor e reaproveita o mesmo cache do console sem precisar inventar um mecanismo novo. |
 | **`GET /api/relatorio`/`GET /api/busca` exigem cache prévio (409 se não bate)** | Em vez de disparar uma consulta implícita, força o cliente (frontend) a chamar `POST /api/consultas` primeiro — mantém explícito quando uma requisição HTTP externa acontece, essencial para respeitar o rate limit. |
 | **`PUT /api/configuracao` recarrega a config antes de sobrescrever** | Preserva `Usuarios` (gerido por endpoints próprios) mesmo que o payload do PUT não os inclua. |
 | **`ignorarValidacao` no lugar do prompt "salvar assim mesmo?" do console** | Não há como fazer uma pergunta de sim/não em uma chamada HTTP síncrona; o cliente decide de antemão e sinaliza via flag. |
@@ -538,7 +537,7 @@ sobre o texto cru da descrição).
 - CORS `AllowAny` — adequado só para uso local; não usar essa configuração se
   a API for exposta além de `localhost`.
 - Sem autenticação — qualquer processo na máquina pode chamar a API e ler/
-  alterar `dados/TogglReport.ini` (inclusive tokens) e `dados/ToggleData.ini`.
+  alterar `dados/TogglRelatorioParametros.ini` (inclusive tokens) e `dados/TogglRelatorioData.ini`.
 - Enum documentado no Swagger pode aparecer como inteiro no schema (a
   anotação `[SwaggerDoc]` não propaga automaticamente o
   `JsonStringEnumConverter` para a geração de schema do Swashbuckle) — a
@@ -551,12 +550,12 @@ sobre o texto cru da descrição).
 Segunda visualização dos mesmos dados do Toggl, com parâmetros e cache
 **totalmente independentes** do relatório (ver §4.2 para as rotas). O
 único ponto compartilhado com o relatório é a lista de usuários
-(`TogglReport.ini`) e `ServicoConsulta` (reaproveitado sem alteração — só o
-caminho do arquivo de cache muda, de `ToggleData.ini` para
-`ToggleGantData.ini`).
+(`TogglRelatorioParametros.ini`) e `ServicoConsulta` (reaproveitado sem alteração — só o
+caminho do arquivo de cache muda, de `TogglRelatorioData.ini` para
+`TogglGantData.ini`).
 
-- **`ConfiguracaoGant`** (`dados/ToggleGantParametros.ini`, mesmo formato de
-  seção `[Geral]` do `TogglReport.ini`): `DataInicio`, `DataFim`,
+- **`ConfiguracaoGant`** (`dados/TogglGantParametros.ini`, mesmo formato de
+  seção `[Geral]` do `TogglRelatorioParametros.ini`): `DataInicio`, `DataFim`,
   `TagsSelecionadas` (mesmo conceito de `TagsDetalhadas` do relatório — tags
   que ficam detalhadas por descrição, as demais são agregadas por tag) e
   `Agrupamento` (`descricao`/`tag`/`ambos`, mesmos 3 valores do relatório).
@@ -607,14 +606,31 @@ para esse propósito. O CSS troca o logo padrão do Swagger pelo ícone do
 projeto na topbar e ajusta espaçamentos (`.info`, `.scheme-container`,
 `.btn.authorize`).
 
+**Tentativa de forçar tema claro, revertida (2026-09-06)**: o Swagger UI
+empacotado no Swashbuckle (10.2.3) não tem suporte nativo a tema claro/escuro
+nem segue `prefers-color-scheme` (confirmado inspecionando os recursos
+embutidos — nenhuma ocorrência de `color-scheme`/`dark` no CSS do próprio
+Swagger UI); "tema" ali é só o CSS que já injetamos. Chegou a ser adicionado
+`:root { color-scheme: light }` e depois `color-scheme: only light` ao
+`<style>` injetado, para impedir o navegador de repintar controles nativos
+(scrollbar, `<select>`) no escuro quando o SO/navegador está em modo escuro
+— mas na prática, testado pelo usuário, **nenhuma das duas variantes
+mudou o comportamento observado** (o navegador/SO em questão continuou
+aplicando o próprio esquema escuro por cima). Revertido — nenhum ajuste de
+`color-scheme` está presente hoje no CSS injetado. Não foi investigada a
+causa raiz exata (qual navegador/mecanismo específico ignorou a declaração);
+se o pedido voltar, vale primeiro identificar o navegador/versão usado antes
+de tentar de novo.
+
 ---
 
 ## 5. Frontend (`toggl-report-front`)
 
 ### 5.1 Visão geral
 
-React 19 + TypeScript + MUI 9, via Vite. Consome a Web API (`http://localhost:5180`)
-replicando o fluxo do console: parâmetros → consulta → relatório → busca por
+React 19 + TypeScript + MUI 9, via Vite. Consome a Web API — por padrão em
+`http://localhost:5180`, configurável via a variável de ambiente `VITE_API_URL`
+(ver §5.3) — replicando o fluxo do console: parâmetros → consulta → relatório → busca por
 descrição — mais um segundo fluxo equivalente para o Gantt. Navegação por
 `Tabs`: **"Usuários"** (aba fixa, selecionada por padrão na abertura — sem
 usuário cadastrado, os dois outros fluxos ficam bloqueados), **"Relatório"**
@@ -654,7 +670,7 @@ toggl-report-front/src/
  │   ├─ relatorio/          # RelatorioView.tsx, RelatorioUsuarioCard.tsx, curadoria.ts + useRelatorio.ts
  │   ├─ busca/              # BuscaPanel.tsx + useBusca.ts (busca do relatório — layout de lista)
  │   ├─ gant/               # ParametrosGantForm.tsx, GantView.tsx (tabela própria, com busca embutida) + useParametrosGant.ts/useConsultaGant.ts/useGant.ts
- │   └─ dados/              # RodapeDownloads.tsx (links de download dos .ini + versão do app)
+ │   └─ dados/              # RodapeDownloads.tsx (download único da pasta dados/ compactada + versão do app)
  ├─ components/
  │   ├─ BotaoComCarregamento.tsx
  │   └─ DialogoConfirmacao.tsx  # Dialog genérico (confirmação com Cancelar, ou só informativo com OK) — reaproveitado pela exclusão de usuário
@@ -673,6 +689,19 @@ toggl-report-front/src/
 - **`fetch` nativo com wrapper tipado** (`src/api/http.ts`), não axios — sem
   dependência extra; trata os corpos de erro (strings simples, não objetos)
   com uma classe `ErroApi` própria.
+- **Endereço da Web API configurável via `VITE_API_URL`** (`src/api/http.ts`,
+  `URL_BASE_API = import.meta.env.VITE_API_URL ?? 'http://localhost:5180'`):
+  mecanismo padrão do Vite (variável de build, prefixo `VITE_` obrigatório —
+  só existe no bundle se estiver presente **no momento do `vite build`**, não
+  dá para trocar depois num build já gerado). Sem a variável definida, cai no
+  valor de sempre (`http://localhost:5180`, a porta fixa da Api local). Documentada
+  em `.env.example` (raiz de `toggl-report-front/`, não versionado como `.env`
+  real — só o `.example` é commitado). No `docker-compose.yml` da raiz do
+  repositório, é passada como **build arg** (`args: VITE_API_URL` no serviço
+  `toggl_report_web`) apontando para a porta que a Api publica no **host**
+  (`http://localhost:5003`) — não para o nome do serviço na rede interna do
+  Compose (`toggl_report_api`), porque o `fetch` roda no navegador do usuário,
+  que não resolve nomes de serviço Docker.
 - **Curadoria de exibição replicada aqui, não pedida ao back-end**:
   `porDescricao` chega cru (sem ordenação especial); `curarPorDescricao`
   (`features/relatorio/curadoria.ts`) aplica a mesma regra do console (TEL
@@ -708,8 +737,9 @@ toggl-report-front/src/
 
 ### 5.4 Limitações conhecidas desta camada
 
-- Depende da Web API estar rodando em `http://localhost:5180`; sem ela, toda
-  chamada falha com um aviso (snackbar), mas o app não trava.
+- Depende da Web API estar rodando no endereço configurado (`VITE_API_URL`,
+  padrão `http://localhost:5180`); sem ela, toda chamada falha com um aviso
+  (snackbar), mas o app não trava.
 - Sem autenticação (a API não tem) — não é para uso além de `localhost`.
 - Não há testes automatizados (mesma limitação do resto do repositório).
 
@@ -734,9 +764,15 @@ toggl-report-front/src/
   `Typography`, estilo só local (não é `typography` global do tema). Ícone
   `toggl-report.png` (mesmo arquivo usado no Swagger, §4.7) antes do título;
   `icons.svg` (órfão, sem nenhuma referência) foi removido de `public/`.
-- **Diálogo de confirmação genérico** (`DialogoConfirmacao.tsx`): usado antes
-  de excluir um usuário (Cancelar/Remover) e depois de criar/editar/excluir
-  com sucesso (só um botão "OK") — mesmo componente, dois modos.
+- **Diálogo de confirmação genérico** (`DialogoConfirmacao.tsx`): só para
+  confirmar uma ação antes de executá-la (Cancelar/Remover antes de excluir
+  um usuário; Não/Consultar mesmo assim antes de forçar nova consulta à API,
+  ver §5.3) — nunca para comunicar o *resultado* de uma ação. Mensagens de
+  sucesso/aviso/erro (criar/editar/excluir usuário com sucesso, incluídas)
+  usam sempre `useNotificacao` (`notificarSucesso`/`notificarErro`/
+  `notificarInfo` — `Snackbar`+`Alert` global, cor por `severity` do MUI),
+  o mesmo padrão de "Parâmetros salvos" do relatório/Gantt — nenhum diálogo
+  modal exibe mensagem de resultado neste projeto.
 
 ---
 
@@ -756,8 +792,8 @@ Tabela preservada do console antes da expansão para Web API/frontend
 | **`Tela.Limpar()` limpa via sequência ANSI (incluindo scrollback) + `Console.Clear()`, só quando não redirecionado** | `Console.Clear()` sozinho se mostrou pouco confiável para limpar a tela visível em alguns terminais Windows; a sequência inicial (dois códigos VT: apaga tela + reposiciona cursor) não apagava o *scrollback*. `Tela.SequenciaLimparTela` ganhou um terceiro código VT ("erase saved lines") entre os dois. `Console.IsOutputRedirected` no início evita escrever códigos de escape numa saída redirecionada. |
 | **`Tela.ExibirComCabecalho(versao, configuracao, Action conteudo)`** | Centraliza "limpar + redesenhar cabeçalho + imprimir conteúdo" num único ponto. |
 | **Nem toda impressão de conteúdo limpa a tela — só troca de tela genuína** | `ImprimirConteudoRelatorio` (primeira exibição do relatório) e o aviso de "nenhum usuário retornou dados" **não** limpam — ficam anexados logo abaixo das linhas de progresso/erro por usuário. Só quando o usuário pede explicitamente para trocar de tela é que `Tela.ExibirComCabecalho`/`Tela.Cabecalho` limpam antes. |
-| **Parser de INI compartilhado** (`AnalisadorIni.Analisar`) | `TogglReport.ini` e `ToggleData.ini` têm o mesmo formato de seções/`chave=valor`; extrair o parser evita duas implementações idênticas. |
-| **`TogglReport.ini` e `ToggleData.ini` como único estado persistente, dentro de `dados/`** | Em `AppContext.BaseDirectory/dados` (ao lado do exe), sem banco; legíveis/editáveis à mão. `ToggleData.ini` guarda o retorno **cru** da API — carregar do cache nunca pula a etapa de processamento, só a chamada HTTP. |
+| **Parser de INI compartilhado** (`AnalisadorIni.Analisar`) | `TogglRelatorioParametros.ini` e `TogglRelatorioData.ini` têm o mesmo formato de seções/`chave=valor`; extrair o parser evita duas implementações idênticas. |
+| **`TogglRelatorioParametros.ini` e `TogglRelatorioData.ini` como único estado persistente, dentro de `dados/`** | Em `AppContext.BaseDirectory/dados` (ao lado do exe), sem banco; legíveis/editáveis à mão. `TogglRelatorioData.ini` guarda o retorno **cru** da API — carregar do cache nunca pula a etapa de processamento, só a chamada HTTP. |
 | **Limite de 30 requisições/hora por usuário em memória** (`Toggl/LimitadorRequisicoes`) | Camada extra de segurança além do retry de 429 já existente em `ClienteApiToggl`; não persiste entre execuções. Quando atingido, cai para o cache daquele usuário **somente se for do mesmo período e token**. |
 | **`ResultadoApiToggl<T>`** (`Ok`/`Falha`) | Erros esperados (401, 429, rede) não usam exceptions. |
 | **Um `HttpClient` por `ClienteApiToggl` por usuário** | Basic Auth próprio; app de vida curta. |
@@ -1050,6 +1086,32 @@ histórico mantido como estava escrito, sem reescrever caminhos.
       foram trabalhados em paralelo a essas rodadas — ver §5.5/§4.7, sem
       relação direta com o Gantt além de terem acontecido na mesma janela de
       tempo.
+18. **Correção da grafia "Toggle" → "Toggl" nos 4 arquivos de dados + unificação
+    do padrão de nomes entre relatório e Gantt** (2026-09-06, mapeamento por
+    ocorrência com classificação de risco antes de qualquer edição — nenhuma
+    ocorrência de baixo risco foi encontrada; as únicas menções a "Toggle" no
+    projeto inteiro, fora do `node_modules` do MUI, `ToggleButton`/`ToggleOn`/
+    `ToggleOff`, termo genérico de terceiros sem relação com a marca, eram os
+    3 nomes de arquivo abaixo e suas referências em docs/ignore-files):
+    `TogglReport.ini` → `TogglRelatorioParametros.ini`, `ToggleData.ini` →
+    `TogglRelatorioData.ini`, `ToggleGantParametros.ini` →
+    `TogglGantParametros.ini`, `ToggleGantData.ini` → `TogglGantData.ini` —
+    os 4 nomes passaram a seguir o mesmo padrão `Toggl<Domínio>Parametros.ini`/
+    `Toggl<Domínio>Data.ini` (`Domínio` ∈ {`Relatorio`, `Gant`}), unificando o
+    que antes só existia para o Gantt. **Migração automática, sem intervenção
+    manual**: `CaminhosDados` (único ponto por onde console e Api resolvem
+    esses 4 caminhos) passou a checar, antes de devolver o caminho novo, se o
+    arquivo com o nome antigo existe e o novo ainda não — se sim, renomeia
+    (`File.Move`) o antigo para o novo silenciosamente, com o mesmo
+    `try/catch (IOException or UnauthorizedAccessException)` não-fatal que o
+    projeto já usa para falhas de I/O em INI. Efeito: quem já tinha cache/
+    config gravado com os nomes antigos continua enxergando os mesmos dados,
+    sob o nome novo, na primeira execução após a atualização — sem perda.
+    `.gitignore` (raiz e `toggl-report-back/`) e `.dockerignore`
+    (`toggl-report-back/`) mantiveram as 4 entradas antigas (para quem ainda
+    não rodou a migração) e ganharam as 4 novas. Nenhuma rota HTTP foi afetada —
+    `GET /api/dados/download` (que zipa a pasta `dados/` inteira, ver §4.2) já
+    lista o que existir em tempo de requisição, sem nomes de arquivo fixos.
 
 ---
 
@@ -1067,9 +1129,18 @@ TogglReport.ini`, `toggl-report-back/TogglReport.Api/bin/.../dados/
 ToggleData.ini`, etc.), então a reestruturação em `toggl-report-back/` não
 exigiu nenhum ajuste aqui. `ToggleGantParametros.ini`/`ToggleGantData.ini`
 (item 17 do histórico) foram adicionados ao lado dos outros dois pelo mesmo
-motivo (tokens/dado cru). Se o `.gitignore` for regenerado do template do
-GitHub, **reaplicar as linhas dos quatro arquivos** (`TogglReport.ini`,
-`ToggleData.ini`, `ToggleGantParametros.ini`, `ToggleGantData.ini`).
+motivo (tokens/dado cru). Os 4 nomes acima são os que existiam até o item 18
+do histórico — a correção de grafia + unificação de padrão daquele item
+renomeou os 4 arquivos (`TogglReport.ini` → `TogglRelatorioParametros.ini`,
+`ToggleData.ini` → `TogglRelatorioData.ini`, `ToggleGantParametros.ini` →
+`TogglGantParametros.ini`, `ToggleGantData.ini` → `TogglGantData.ini`); as 4
+entradas antigas foram mantidas no `.gitignore` (não removidas), já que
+`CaminhosDados` migra sozinho o arquivo antigo para o nome novo no primeiro
+uso, mas só depois de encontrá-lo — até lá, ele ainda existe em disco com o
+nome antigo. Se o `.gitignore` for regenerado do template do GitHub,
+**reaplicar as linhas dos oito nomes** (`TogglRelatorioParametros.ini`,
+`TogglRelatorioData.ini`, `TogglGantParametros.ini`, `TogglGantData.ini`, e os
+4 antigos acima).
 
 ---
 

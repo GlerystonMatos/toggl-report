@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
+import { urlDownloadDados } from '../../api/dadosApi';
 import DownloadIcon from '@mui/icons-material/Download';
 import { Button, Stack, Typography } from '@mui/material';
-import { urlDownloadCache, urlDownloadConfiguracao } from '../../api/dadosApi';
 
 export function RodapeDownloads(): ReactNode {
     return (
@@ -19,18 +19,9 @@ export function RodapeDownloads(): ReactNode {
             <Typography variant="caption" color="text.secondary">
                 Toggl Report – Por Gleryston Matos – v{__APP_VERSION__}
             </Typography>
-            <Stack direction="row" spacing={1}>
-                <Button
-                    size="small"
-                    startIcon={<DownloadIcon />}
-                    component="a"
-                    href={urlDownloadConfiguracao()}>
-                    TogglReport.ini
-                </Button>
-                <Button size="small" startIcon={<DownloadIcon />} component="a" href={urlDownloadCache()}>
-                    ToggleData.ini
-                </Button>
-            </Stack>
+            <Button size="small" startIcon={<DownloadIcon />} component="a" href={urlDownloadDados()}>
+                Baixar dados (.zip)
+            </Button>
         </Stack>
     );
 }

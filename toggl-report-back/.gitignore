@@ -61,6 +61,14 @@ BenchmarkDotNet.Artifacts/
 project.lock.json
 project.fragment.lock.json
 artifacts/
+[Oo]ut/
+
+# Mono
+mono_crash.*
+
+# .NET test results
+*.trx
+MSBuild_Logs/
 
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
@@ -75,6 +83,7 @@ StyleCopReport.xml
 *.ilk
 *.meta
 *.obj
+*.idb
 *.iobj
 *.pch
 *.pdb
@@ -396,6 +405,7 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+*.vsix
 
 # Dados e relatórios gerados pela cobertura de código
 Coverage/*
@@ -404,5 +414,7 @@ Coverage/*
 *.env
 
 # Configuração local (API Tokens em texto puro) e cache de consulta (tratar como segredo)
-TogglReport.ini
-ToggleData.ini
+TogglRelatorioParametros.ini
+TogglRelatorioData.ini
+TogglGantParametros.ini
+TogglGantData.ini

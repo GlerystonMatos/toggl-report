@@ -15,6 +15,8 @@ builder.Services.AddCors(opcoes =>
 builder.Services.ConfigureHttpJsonOptions(opcoes =>
     opcoes.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
+builder.Services.AddHealthChecks();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(opcoes =>
 {
@@ -31,6 +33,8 @@ WebApplication app = builder.Build();
 app.UseCors(PoliticaCorsLocal);
 
 app.UseStaticFiles();
+
+app.MapHealthChecks("/health");
 
 app.UseSwagger();
 app.UseSwaggerUI(opcoes =>
@@ -83,13 +87,14 @@ string caminhoConfiguracao = CaminhosDados.CaminhoConfiguracao(AppContext.BaseDi
 string caminhoCache = CaminhosDados.CaminhoCache(AppContext.BaseDirectory);
 string caminhoParametrosGant = CaminhosDados.CaminhoParametrosGant(AppContext.BaseDirectory);
 string caminhoCacheGant = CaminhosDados.CaminhoCacheGant(AppContext.BaseDirectory);
+string pastaDados = CaminhosDados.PastaDados(AppContext.BaseDirectory);
 
 app.MapConfiguracaoEndpoints(caminhoConfiguracao);
 app.MapUsuariosEndpoints(caminhoConfiguracao);
 app.MapConsultasEndpoints(caminhoConfiguracao, caminhoCache);
 app.MapRelatorioEndpoints(caminhoConfiguracao, caminhoCache);
 app.MapBuscaEndpoints(caminhoConfiguracao, caminhoCache);
-app.MapDadosEndpoints(caminhoConfiguracao, caminhoCache);
+app.MapDadosEndpoints(pastaDados);
 app.MapGantEndpoints(caminhoConfiguracao, caminhoParametrosGant, caminhoCacheGant);
 
 app.Run();

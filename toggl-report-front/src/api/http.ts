@@ -1,4 +1,4 @@
-export const URL_BASE_API = 'http://localhost:5180';
+export const URL_BASE_API = import.meta.env.VITE_API_URL ?? 'http://localhost:5180';
 
 export class ErroApi extends Error {
     readonly status: number;

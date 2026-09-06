@@ -14,14 +14,28 @@ Console e Web API são interfaces diferentes para a **mesma lógica**: ambos con
 
 ## Índice
 
-- [Requisitos](#requisitos)
-- [Compilar a solução](#compilar-a-solução)
-- [Console (`TogglReport.Console`)](#console-togglreportconsole)
-- [Núcleo compartilhado (`TogglReport.Nucleo`)](#núcleo-compartilhado-togglreportnucleo)
-- [Web API (`TogglReport.Api`)](#web-api-togglreportapi)
-- [Estrutura de arquivos](#estrutura-de-arquivos)
-- [Segurança](#segurança)
-- [Limitações conhecidas](#limitações-conhecidas)
+- [toggl-report-back](#toggl-report-back)
+  - [Índice](#índice)
+  - [Requisitos](#requisitos)
+  - [Compilar a solução](#compilar-a-solução)
+  - [Console (`TogglReport.Console`)](#console-togglreportconsole)
+    - [Como usar](#como-usar)
+    - [Funcionalidades](#funcionalidades)
+    - [Fluxo de configuração (assistente)](#fluxo-de-configuração-assistente)
+    - [Cache de consulta (`TogglRelatorioData.ini`)](#cache-de-consulta-togglrelatoriodataini)
+    - [Relatório no console](#relatório-no-console)
+    - [Busca por descrição](#busca-por-descrição)
+    - [Como obter seu API Token do Toggl](#como-obter-seu-api-token-do-toggl)
+  - [Núcleo compartilhado (`TogglReport.Nucleo`)](#núcleo-compartilhado-togglreportnucleo)
+  - [Web API (`TogglReport.Api`)](#web-api-togglreportapi)
+    - [Como rodar](#como-rodar)
+    - [Endpoints](#endpoints)
+    - [Exemplos de request/response](#exemplos-de-requestresponse)
+    - [Gráfico de Gantt](#gráfico-de-gantt)
+    - [Decisões desta camada](#decisões-desta-camada)
+  - [Estrutura de arquivos](#estrutura-de-arquivos)
+  - [Segurança](#segurança)
+  - [Limitações conhecidas](#limitações-conhecidas)
 
 ## Requisitos
 
@@ -49,7 +63,7 @@ Console interativo que consulta o Toggl Track (`GET /me/time_entries`) usando o 
 dotnet run --project TogglReport.Console
 ```
 
-Na primeira execução, o app guia você por um cadastro inicial (agrupamento padrão, usuários/tokens, período) e cria a pasta `dados/` ao lado do executável. Nas execuções seguintes, carrega o `dados/TogglReport.ini` já existente e, se houver um `dados/ToggleData.ini` da última consulta com o mesmo período e usuários, oferece reaproveitá-lo.
+Na primeira execução, o app guia você por um cadastro inicial (agrupamento padrão, usuários/tokens, período) e cria a pasta `dados/` ao lado do executável. Nas execuções seguintes, carrega o `dados/TogglRelatorioParametros.ini` já existente e, se houver um `dados/TogglRelatorioData.ini` da última consulta com o mesmo período e usuários, oferece reaproveitá-lo.
 
 ### Funcionalidades
 
@@ -57,7 +71,7 @@ Na primeira execução, o app guia você por um cadastro inicial (agrupamento pa
 - **Tags configuradas aparecem detalhadas em "Por descrição" e saem de "Por tag"**: você escolhe quais tags (com agrupamento "ambos"); as demais ficam de fora de "Por descrição" (só entram no total de "Por tag").
 - **Descrições de ticket "TEL" sempre no mesmo formato**: "TEL-0000-AA", "TEL-0000 - AA" etc. viram "TEL - 0000 - AA" — já na hora de somar os tempos, não só na exibição.
 - Identifica e lista separadamente entradas com **timer ainda em execução** (não entram nos totais).
-- **Cache de consulta** (`dados/ToggleData.ini`): o retorno cru da última consulta de cada usuário fica salvo; se o período e os usuários da próxima execução forem iguais, o app oferece carregar do cache em vez de consultar a API de novo (o agrupamento e os cálculos rodam sempre em cima do dado, cacheado ou não — o cache nunca guarda um resultado já processado).
+- **Cache de consulta** (`dados/TogglRelatorioData.ini`): o retorno cru da última consulta de cada usuário fica salvo; se o período e os usuários da próxima execução forem iguais, o app oferece carregar do cache em vez de consultar a API de novo (o agrupamento e os cálculos rodam sempre em cima do dado, cacheado ou não — o cache nunca guarda um resultado já processado).
 - **Limite de 30 requisições/hora por usuário**: um contador em memória evita novas chamadas além desse limite dentro da mesma execução; se atingido, usa o cache (quando disponível para o mesmo período) em vez de consultar.
 - **Busca por parte da descrição**, agrupada por descrição e detalhada por usuário no mesmo estilo visual do relatório completo; depois de cada busca, o app oferece voltar ao relatório completo, fazer nova busca ou continuar o fluxo normal.
 - Assistente interativo para cadastrar, editar e remover usuários/tokens, com **validação do token na hora** (chamada a `GET /me`).
@@ -99,9 +113,9 @@ O assistente pede, **campo a campo**: **agrupamento** (descrição / tag / ambos
 ```
 Ao adicionar ou editar um token, o app valida contra a API (`GET /me`) antes de salvar; se a validação falhar, pergunta se quer tentar novamente ou salvar mesmo assim.
 
-### Cache de consulta (`ToggleData.ini`)
+### Cache de consulta (`TogglRelatorioData.ini`)
 
-Depois de uma consulta bem-sucedida, o app grava o retorno cru da API (sem nenhum agrupamento ou cálculo aplicado) em `dados/ToggleData.ini`. Na próxima execução, se o período e o conjunto de usuários/tokens confirmados forem **exatamente iguais** aos da última consulta salva, o app pergunta:
+Depois de uma consulta bem-sucedida, o app grava o retorno cru da API (sem nenhum agrupamento ou cálculo aplicado) em `dados/TogglRelatorioData.ini`. Na próxima execução, se o período e o conjunto de usuários/tokens confirmados forem **exatamente iguais** aos da última consulta salva, o app pergunta:
 
 ```
  Os parâmetros são iguais aos da última consulta salva. Deseja consultar novamente à API? [s/N]:
@@ -174,7 +188,7 @@ Biblioteca de classes referenciada pelo `TogglReport.Console` (console) e pelo `
 
 | Pasta | Conteúdo |
 |---|---|
-| `Configuracao/` | `ConfiguracaoApp`/`ConfiguracaoUsuario` (modelo do `TogglReport.ini`), `CarregadorConfiguracaoIni`, `CacheConsulta`/`UsuarioCacheado` (modelo do `ToggleData.ini`), `CarregadorCacheIni`, `AnalisadorIni` (parser de INI compartilhado), `CaminhosDados` (monta os caminhos `dados/TogglReport.ini` e `dados/ToggleData.ini` a partir do diretório base de quem chama), `ServicoUsuarios` (gerar chave única, checar nome em uso, mascarar token) |
+| `Configuracao/` | `ConfiguracaoApp`/`ConfiguracaoUsuario` (modelo do `TogglRelatorioParametros.ini`), `CarregadorConfiguracaoIni`, `CacheConsulta`/`UsuarioCacheado` (modelo do `TogglRelatorioData.ini`), `CarregadorCacheIni`, `AnalisadorIni` (parser de INI compartilhado), `CaminhosDados` (monta os caminhos `dados/TogglRelatorioParametros.ini` e `dados/TogglRelatorioData.ini` a partir do diretório base de quem chama), `ServicoUsuarios` (gerar chave única, checar nome em uso, mascarar token) |
 | `Toggl/` | `ClienteApiToggl` (HTTP Basic contra `api.track.toggl.com/api/v9`), `RegistroTempoDto`, `ResultadoApiToggl`, `LimitadorRequisicoes` (limite de 30 req/hora, em memória, por processo) |
 | `Relatorios/` | `ServicoAgrupamento` (por descrição/tag, normalização "TEL"), `LinhaDescricao`, `ServicoBuscaDescricao`, `LinhaBusca`, `ResultadoBuscaDescricao` — tudo puro, devolve dados, nunca texto formatado |
 | `Consultas/` | `ServicoConsulta` — decide cache×API e aplica o rate limiter; `ResultadoConsulta`, `EventoConsultaUsuario`, `StatusConsultaUsuario` |
@@ -197,7 +211,7 @@ dotnet run --project TogglReport.Api
 
 Sobe em `http://localhost:5180` (porta fixa, `Properties/launchSettings.json`). Swagger/OpenAPI em **`http://localhost:5180/swagger`** — documenta todos os endpoints com parâmetros, respostas e exemplos, sem exigir autenticação.
 
-Cria sua **própria** pasta `dados/` (ao lado do executável da API) — independente da pasta `dados/` do console. Cada processo tem seu próprio arquivo `TogglReport.ini`/`ToggleData.ini` e seu próprio contador de rate limit; rodar os dois ao mesmo tempo não compartilha estado.
+Cria sua **própria** pasta `dados/` (ao lado do executável da API) — independente da pasta `dados/` do console. Cada processo tem seu próprio arquivo `TogglRelatorioParametros.ini`/`TogglRelatorioData.ini` e seu próprio contador de rate limit; rodar os dois ao mesmo tempo não compartilha estado.
 
 ### Endpoints
 
@@ -213,11 +227,10 @@ Cria sua **própria** pasta `dados/` (ao lado do executável da API) — indepen
 | `POST` | `/api/consultas` | Consulta o Toggl (cache-first, respeita o rate limit); salva o retorno cru |
 | `GET` | `/api/relatorio?dataInicio=&dataFim=` | Relatório agrupado a partir dos dados em cache |
 | `GET` | `/api/busca?termo=` | Busca por descrição sobre os dados em cache |
-| `GET` | `/api/dados/download/configuracao` | Baixa o `TogglReport.ini` cru |
-| `GET` | `/api/dados/download/cache` | Baixa o `ToggleData.ini` cru |
+| `GET` | `/api/dados/download` | Baixa a pasta `dados/` inteira compactada em `dados.zip` (todos os arquivos presentes no momento, sem lista fixa) |
 | `GET` | `/api/gant/parametros` | Período, tags a detalhar e agrupamento do **Gantt** (independente do relatório) |
 | `PUT` | `/api/gant/parametros` | Atualiza os parâmetros do Gantt |
-| `POST` | `/api/gant/consultas` | Igual a `/api/consultas`, mas grava em `ToggleGantData.ini` |
+| `POST` | `/api/gant/consultas` | Igual a `/api/consultas`, mas grava em `TogglGantData.ini` |
 | `GET` | `/api/gant?dataInicio=&dataFim=&termo=` | Gantt agrupado por usuário/categoria/descrição, dia a dia (só dias úteis); `termo` filtra por descrição |
 
 ### Exemplos de request/response
@@ -243,17 +256,17 @@ Cria sua **própria** pasta `dados/` (ao lado do executável da API) — indepen
 
 ### Gráfico de Gantt
 
-`/api/gant/*` é um segundo fluxo, com parâmetros (`ConfiguracaoGant`: período + tags a detalhar + agrupamento) e cache (`dados/ToggleGantData.ini`) **independentes** do relatório — reaproveita a mesma lista de usuários e o mesmo `ServicoConsulta`, só troca o arquivo de cache. `GET /api/gant` devolve `{ dias, linhas }`: `dias` são só os **dias úteis** do período (sábado/domingo ocultos); cada linha pertence a um único usuário, agrupada por categoria (tag) + descrição — tags na lista "a detalhar" viram uma linha por descrição, as demais ficam agregadas numa única linha por tag. O parâmetro opcional `termo` filtra por descrição antes de agrupar (mesma rota, sem endpoint novo).
+`/api/gant/*` é um segundo fluxo, com parâmetros (`ConfiguracaoGant`: período + tags a detalhar + agrupamento) e cache (`dados/TogglGantData.ini`) **independentes** do relatório — reaproveita a mesma lista de usuários e o mesmo `ServicoConsulta`, só troca o arquivo de cache. `GET /api/gant` devolve `{ dias, linhas }`: `dias` são só os **dias úteis** do período (sábado/domingo ocultos); cada linha pertence a um único usuário, agrupada por categoria (tag) + descrição — tags na lista "a detalhar" viram uma linha por descrição, as demais ficam agregadas numa única linha por tag. O parâmetro opcional `termo` filtra por descrição antes de agrupar (mesma rota, sem endpoint novo).
 
-Os usuários ganharam três campos exclusivos da versão web (persistidos no mesmo `TogglReport.ini`, ignorados pelo console): `sigla`/`cor` (identificação visual nas células do Gantt) e `selecionado` (`bool`, default `true` — só usuários selecionados entram na próxima consulta, seja do relatório ou do Gantt).
+Os usuários ganharam três campos exclusivos da versão web (persistidos no mesmo `TogglRelatorioParametros.ini`, ignorados pelo console): `sigla`/`cor` (identificação visual nas células do Gantt) e `selecionado` (`bool`, default `true` — só usuários selecionados entram na próxima consulta, seja do relatório ou do Gantt).
 
 ### Decisões desta camada
 
 - **Minimal APIs**, um arquivo por grupo de endpoints em `Endpoints/` (`Map*Endpoints(this WebApplication app, ...)`), DTOs em `Dtos/` — nenhuma duplicação de lógica: todo endpoint delega para `TogglReport.Nucleo`.
-- **Stateless entre requisições**: a API nunca mantém os registros baixados em memória entre chamadas — toda leitura de relatório/busca **relê o `ToggleData.ini`**. Isso é o que permite reaproveitar o cache do jeito mais simples possível, sem sessão.
+- **Stateless entre requisições**: a API nunca mantém os registros baixados em memória entre chamadas — toda leitura de relatório/busca **relê o `TogglRelatorioData.ini`**. Isso é o que permite reaproveitar o cache do jeito mais simples possível, sem sessão.
 - **CORS liberado** (`AllowAnyOrigin/Header/Method`) — uso exclusivamente local, sem dado sensível trafegando entre origens que importe proteger.
 - **Enums serializados como string** (`JsonStringEnumConverter`) — `status` de `/api/consultas` aparece como texto no JSON, não como número.
-- **Swashbuckle.AspNetCore** — única dependência NuGet do repositório (necessária para o Swagger; o console continua com zero dependências). A UI do Swagger tem CSS próprio injetado (`SwaggerUIOptions.HeadContent`) e usa o ícone do projeto (servido via `app.UseStaticFiles()`, a única pasta estática da API).
+- **Swashbuckle.AspNetCore** — única dependência NuGet do repositório (necessária para o Swagger; o console continua com zero dependências). A UI do Swagger tem CSS próprio injetado (`SwaggerUIOptions.HeadContent`) e usa o ícone do projeto (servido via `app.UseStaticFiles()`, a única pasta estática da API). Não tem tema escuro nativo — segue o SO/navegador do usuário; uma tentativa de forçar tema claro via `color-scheme` foi testada e revertida por não funcionar na prática (ver `CLAUDE.md` §4.7).
 - **Sem autenticação/autorização** — por design, para uso local.
 
 ---
@@ -283,7 +296,7 @@ toggl-report-back/
 
 ## Segurança
 
-`TogglReport.ini` e `ToggleData.ini` (gerados por **cada** executável em sua própria pasta `dados/`) guardam API Tokens em **texto puro** (o segundo também o retorno cru das consultas). Não versione esses arquivos (já estão no `.gitignore`, em qualquer profundidade de pasta) e trate-os como segredo.
+`TogglRelatorioParametros.ini` e `TogglRelatorioData.ini` (gerados por **cada** executável em sua própria pasta `dados/`) guardam API Tokens em **texto puro** (o segundo também o retorno cru das consultas). Não versione esses arquivos (já estão no `.gitignore`, em qualquer profundidade de pasta) e trate-os como segredo.
 
 ## Limitações conhecidas
 

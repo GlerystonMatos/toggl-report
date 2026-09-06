@@ -1,0 +1,14 @@
+node_modules/
+**/node_modules/
+dist/
+dist-ssr/
+.env
+.env.*
+*.log
+coverage/
+.vscode/
+.git/
+.gitignore
+Dockerfile
+.editorconfig
+**/*.md

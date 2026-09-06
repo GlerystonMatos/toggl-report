@@ -48,6 +48,6 @@ public static class ConsultasEndpoints
             return Results.Ok(new ConsultarResponse(request.DataInicio, request.DataFim, VeioDoCache: false, eventos));
         })
         .WithTags("Consultas")
-        .WithSummary("Consulta o Toggl respeitando o cache e o limite de 30 req/hora; salva o retorno cru em ToggleData.ini");
+        .WithSummary("Consulta o Toggl respeitando o cache e o limite de 30 req/hora; salva o retorno cru em TogglRelatorioData.ini");
     }
 }

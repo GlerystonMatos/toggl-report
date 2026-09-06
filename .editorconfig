@@ -5,6 +5,12 @@ end_of_line = crlf
 indent_style = space
 indent_size = 4
 
+[*.cs]
+charset = utf-8
+
+[*.json]
+charset = utf-8
+
 [*.ts]
 charset = utf-8
 
@@ -17,9 +23,20 @@ charset = utf-8
 [*.css]
 charset = utf-8
 
-[*.json]
-charset = utf-8
-
 [*.md]
 end_of_line = lf
 charset = utf-8
+
+[*.yml]
+end_of_line = lf
+charset = utf-8
+
+[Dockerfile]
+end_of_line = lf
+
+[*.conf]
+end_of_line = lf
+charset = utf-8
+
+[.dockerignore]
+end_of_line = lf

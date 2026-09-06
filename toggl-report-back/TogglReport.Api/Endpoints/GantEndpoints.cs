@@ -86,7 +86,7 @@ public static class GantEndpoints
 
             return Results.Ok(new ConsultarResponse(request.DataInicio, request.DataFim, VeioDoCache: false, eventos));
         })
-        .WithSummary("Consulta o Toggl para o Gant respeitando o cache e o limite de 30 req/hora; salva o retorno cru em ToggleGantData.ini");
+        .WithSummary("Consulta o Toggl para o Gant respeitando o cache e o limite de 30 req/hora; salva o retorno cru em TogglGantData.ini");
 
         grupo.MapGet("/", (string dataInicio, string dataFim, string? termo) =>
         {

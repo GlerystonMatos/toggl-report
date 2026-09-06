@@ -104,7 +104,7 @@ export function ParametrosForm({ onSalvo, semUsuarios }: ParametrosFormProps): R
         <Card variant="outlined">
             <CardContent>
                 <Stack spacing={3}>
-                    <Typography variant="h6">Parâmetros do relatório</Typography>
+                    <Typography variant="h6">Parâmetros do Relatório</Typography>
 
                     <TextField
                         select

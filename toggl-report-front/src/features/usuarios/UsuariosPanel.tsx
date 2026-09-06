@@ -30,11 +30,10 @@ interface UsuariosPanelProps {
 }
 
 export function UsuariosPanel({ onVoltar, onContinuar }: UsuariosPanelProps): ReactNode {
-    const { notificarErro } = useNotificacao();
     const [dialogoAberto, setDialogoAberto] = useState(false);
+    const { notificarErro, notificarSucesso } = useNotificacao();
     const { usuarios, carregando, carregar, editar, remover } = useUsuarios();
     const [removendoChave, setRemovendoChave] = useState<string | null>(null);
-    const [mensagemConcluida, setMensagemConcluida] = useState<string | null>(null);
     const [usuarioEmEdicao, setUsuarioEmEdicao] = useState<UsuarioResumo | null>(null);
     const [usuarioParaExcluir, setUsuarioParaExcluir] = useState<UsuarioResumo | null>(null);
 
@@ -65,7 +64,7 @@ export function UsuariosPanel({ onVoltar, onContinuar }: UsuariosPanelProps): Re
         setRemovendoChave(usuarioParaExcluir.chave);
         try {
             await remover(usuarioParaExcluir.chave);
-            setMensagemConcluida(`Usuário "${usuarioParaExcluir.nomeExibicao}" removido com sucesso.`);
+            notificarSucesso(`Usuário "${usuarioParaExcluir.nomeExibicao}" removido com sucesso.`);
             setUsuarioParaExcluir(null);
         } catch (erro) {
             notificarErro(erro, 'Não foi possível remover o usuário');
@@ -152,7 +151,7 @@ export function UsuariosPanel({ onVoltar, onContinuar }: UsuariosPanelProps): Re
                 onFechar={() => setDialogoAberto(false)}
                 onSalvo={(mensagem) => {
                     carregar().catch((erro: unknown) => notificarErro(erro, 'Não foi possível atualizar a lista'));
-                    setMensagemConcluida(mensagem);
+                    notificarSucesso(mensagem);
                 }} />
 
             <DialogoConfirmacao
@@ -165,12 +164,6 @@ export function UsuariosPanel({ onVoltar, onContinuar }: UsuariosPanelProps): Re
                 carregando={removendoChave === usuarioParaExcluir?.chave}
                 onConfirmar={() => void confirmarRemocao()}
                 onCancelar={() => setUsuarioParaExcluir(null)} />
-
-            <DialogoConfirmacao
-                aberto={mensagemConcluida !== null}
-                titulo="Concluído"
-                mensagem={mensagemConcluida ?? ''}
-                onConfirmar={() => setMensagemConcluida(null)} />
         </Card>
     );
 }
