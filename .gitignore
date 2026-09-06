@@ -7,6 +7,9 @@ certificado/
 dados/
 dados.rar
 
+.env
+!.env.example
+
 TogglRelatorioParametros.ini
 TogglRelatorioData.ini
 TogglGantParametros.ini

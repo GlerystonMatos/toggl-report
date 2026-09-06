@@ -1112,6 +1112,22 @@ histórico mantido como estava escrito, sem reescrever caminhos.
     não rodou a migração) e ganharam as 4 novas. Nenhuma rota HTTP foi afetada —
     `GET /api/dados/download` (que zipa a pasta `dados/` inteira, ver §4.2) já
     lista o que existir em tempo de requisição, sem nomes de arquivo fixos.
+19. **Revisão de segredos antes do repositório se tornar público**
+    (2026-09-06): auditoria de todo o conteúdo rastreado pelo Git (não só
+    arquivos atuais — `git ls-files` + busca por padrões de chave de
+    API/token/private key) antes de abrir o repositório para a comunidade.
+    Nenhuma credencial de GCP/GitHub, token real do Toggl ou dado pessoal
+    encontrado versionado (`dados/`, `dados.rar`, `certificado/`, `*.tfstate`,
+    `terraform.tfvars` reais — todos corretamente fora do controle de
+    versão). **Um problema real corrigido**: `docker-compose.yml` tinha
+    `Kestrel__Certificates__Default__Password=1234` em texto puro, rastreado
+    — movido para `${KESTREL_CERT_PASSWORD}`, lido de um `.env` na raiz
+    (gitignored; `.env.example` como template, ver §8). Os IDs reais dos dois
+    projetos GCP, inicialmente deixados em texto claro por decisão
+    deliberada (não são credencial), foram substituídos a pedido do usuário
+    por `SEU_PROJETO_APP_ID`/`SEU_PROJETO_FINOPS_ID` em todo `toggl-report-infra/`
+    e nos dois READMEs — nenhum identificador real de projeto GCP permanece
+    versionado.
 
 ---
 
@@ -1141,6 +1157,11 @@ nome antigo. Se o `.gitignore` for regenerado do template do GitHub,
 **reaplicar as linhas dos oito nomes** (`TogglRelatorioParametros.ini`,
 `TogglRelatorioData.ini`, `TogglGantParametros.ini`, `TogglGantData.ini`, e os
 4 antigos acima).
+
+`.env`/`!.env.example` (raiz, item 19 do histórico) foram adicionados junto
+da correção da senha do certificado Kestrel — `docker-compose.yml` passou a
+ler `KESTREL_CERT_PASSWORD` de um `.env` local em vez de ter o valor em
+texto puro no arquivo versionado.
 
 ---
 

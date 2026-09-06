@@ -31,12 +31,21 @@ charset = utf-8
 end_of_line = lf
 charset = utf-8
 
-[Dockerfile]
-end_of_line = lf
-
 [*.conf]
 end_of_line = lf
 charset = utf-8
+
+[*.tf]
+end_of_line = lf
+
+[*.hcl]
+end_of_line = lf
+
+[*.tfvars]
+end_of_line = lf
+
+[Dockerfile]
+end_of_line = lf
 
 [.dockerignore]
 end_of_line = lf
