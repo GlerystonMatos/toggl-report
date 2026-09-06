@@ -16,7 +16,7 @@ services:
             - TZ=America/Sao_Paulo
             - ASPNETCORE_HTTPS_PORT=443
             - ASPNETCORE_URLS=https://+:443;http://+:8080
-            - Kestrel__Certificates__Default__Password=1234
+            - Kestrel__Certificates__Default__Password=${KESTREL_CERT_PASSWORD}
             - Kestrel__Certificates__Default__Path=/app/certificado/certificado.pfx
         healthcheck:
             test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
@@ -39,9 +39,9 @@ services:
             args:
                 VITE_API_URL: http://localhost:5003
         ports:
-            - 3002:80
+            - 3002:8080
         healthcheck:
-            test: ["CMD", "wget", "-qO-", "http://localhost/"]
+            test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
             interval: 30s
             timeout: 3s
             retries: 3

@@ -1,0 +1,10 @@
+# Copie para terraform.tfvars (gitignored) e preencha com valores reais.
+
+finops_project_id  = "SEU_PROJETO_FINOPS_ID"
+app_project_id     = "SEU_PROJETO_APP_ID"
+billing_account_id = "XXXXXX-XXXXXX-XXXXXX"
+
+# Opcionais — os defaults já servem para a maioria dos casos:
+# region                   = "us-central1"
+# function_name            = "billing-killswitch"
+# notification_topic_name  = "budget-notifications"

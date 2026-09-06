@@ -2,7 +2,7 @@
 
 Conjunto de aplicações que geram relatórios de tempo trabalhado a partir da **API v9 do Toggl Track**, agrupando por descrição e/ou tag, por usuário, em um período informado — incluindo uma visualização em **Gráfico de Gantt** por usuário/dia (só na versão web).
 
-Este repositório reúne dois projetos independentes:
+Este repositório reúne três projetos independentes:
 
 ## [`toggl-report-back/`](./toggl-report-back/README.md) — C# / .NET 10
 
@@ -15,6 +15,12 @@ Console interativo original **+** uma Web API local (sem autenticação, documen
 Frontend web que consome a Web API acima, replicando o mesmo fluxo do console (parâmetros → usuários/tokens → consulta → relatório → busca) em uma interface gráfica local.
 
 ➡️ **[Documentação completa do frontend](./toggl-report-front/README.md)**
+
+## [`toggl-report-infra/`](./toggl-report-infra/README.md) — Terraform + GCP
+
+Infraestrutura de deploy em produção no Google Cloud (Cloud Run + Cloud Build + Artifact Registry), com premissa de custo zero — scale-to-zero, sem banco de dados, e um killswitch de billing isolado num projeto GCP separado para proteger contra estouro de orçamento.
+
+➡️ **[Documentação completa da infra](./toggl-report-infra/README.md)**
 
 ## Como rodar os dois juntos
 
@@ -31,6 +37,13 @@ O console pode ser usado independentemente da API/frontend — veja o [README do
 ## Como rodar com Docker
 
 ```bash
+cp .env.example .env
+```
+Preencha `KESTREL_CERT_PASSWORD` com a senha real do certificado em
+`./certificado/certificado.pfx` — o `docker-compose.yml` lê essa senha do
+`.env` (gitignored), nunca em texto puro no arquivo versionado.
+
+```bash
 docker-compose up -d --build
 ```
 
@@ -44,6 +57,8 @@ de novo.
 ## Segurança
 
 Os arquivos `TogglRelatorioParametros.ini`/`TogglRelatorioData.ini` (gerados na pasta `dados/` de cada executável) guardam API Tokens do Toggl em **texto puro** e nunca são versionados (`.gitignore`). A Web API não tem autenticação — destinada a uso exclusivamente local.
+
+Revisado (2026-09-06) o conteúdo rastreado pelo Git em busca de segredos antes deste repositório se tornar público: nenhuma chave de API, token do GitHub/GCP, credencial de service account ou dado real de usuário foi encontrado versionado. Dois pontos corrigidos: a senha do certificado HTTPS do `docker-compose.yml` estava em texto puro — movida para `.env` (gitignored, com `.env.example` como template); e os IDs reais dos dois projetos GCP foram substituídos por placeholders (`SEU_PROJETO_APP_ID`/`SEU_PROJETO_FINOPS_ID`) em todo `toggl-report-infra/` e nos READMEs — nenhum identificador real de projeto GCP permanece versionado.
 
 ## Licença
 

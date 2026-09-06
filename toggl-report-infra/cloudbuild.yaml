@@ -1,0 +1,152 @@
+# Pipeline de deploy do toggl-report — disparado só por push na branch
+# "deploy" (trigger definido em terraform/app/cloud-build.tf).
+#
+# Substitutions (_REGION, _REPOSITORY, _FRONTEND_SERVICE, _BACKEND_SERVICE)
+# vêm do trigger do Terraform; os valores abaixo são só o default para rodar
+# manualmente via "gcloud builds submit --config=... --substitutions=...".
+substitutions:
+    _REGION: us-central1
+    _REPOSITORY: toggl-report
+    _FRONTEND_SERVICE: toggl-report-front
+    _BACKEND_SERVICE: toggl-report-back
+
+# Obrigatório sempre que o trigger usa uma service account customizada (não
+# a padrão do Cloud Build) — sem isso o build falha ao gravar log.
+options:
+    logging: CLOUD_LOGGING_ONLY
+
+steps:
+    # 1) Test backend — não há suite de testes automatizada no projeto (nem
+    #    back nem front, ver CLAUDE.md); "dotnet build" é o proxy disponível
+    #    hoje: falha se não compilar.
+    - id: test-backend
+      name: mcr.microsoft.com/dotnet/sdk:10.0
+      dir: toggl-report-back
+      entrypoint: dotnet
+      args: ["build", "TogglReport.slnx"]
+
+    # 2) Test frontend — "npm run build" já roda "tsc -b" (falha em erro de
+    #    tipo); "npm run lint" roda o oxlint. Mesmo raciocínio do backend.
+    - id: test-frontend
+      name: node:22-slim
+      dir: toggl-report-front
+      entrypoint: bash
+      args:
+          - -c
+          - |
+              set -e
+              npm ci
+              npm run build
+              npm run lint
+
+    # 3) O frontend precisa da URL do backend em BUILD TIME (VITE_API_URL é
+    #    bake-ado no bundle, não é variável de runtime) — o serviço já existe
+    #    desde o "terraform apply" da Fase 3 (com imagem placeholder), então a
+    #    URL já é conhecida antes do primeiro deploy real.
+    - id: resolve-backend-url
+      name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+      entrypoint: bash
+      args:
+          - -c
+          - |
+              set -e
+              gcloud run services describe "$_BACKEND_SERVICE" \
+                --project="$PROJECT_ID" \
+                --region="$_REGION" \
+                --format="value(status.url)" > /workspace/backend_url.txt
+              cat /workspace/backend_url.txt
+
+    # 4) Build da imagem do backend — tag sempre $COMMIT_SHA, nunca "latest".
+    - id: build-backend
+      name: gcr.io/cloud-builders/docker
+      args:
+          - build
+          - -f
+          - toggl-report-back/Dockerfile
+          - -t
+          - $_REGION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/backend:$COMMIT_SHA
+          - toggl-report-back
+
+    # 5) Build da imagem do frontend, com VITE_API_URL apontando pro backend
+    #    real no Cloud Run (não localhost).
+    - id: build-frontend
+      name: gcr.io/cloud-builders/docker
+      entrypoint: bash
+      args:
+          - -c
+          - |
+              set -e
+              docker build \
+                -f toggl-report-front/Dockerfile \
+                --build-arg VITE_API_URL="$(cat /workspace/backend_url.txt)" \
+                -t $_REGION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/frontend:$COMMIT_SHA \
+                toggl-report-front
+
+    # 6) Push das duas imagens para o Artifact Registry.
+    - id: push-backend
+      name: gcr.io/cloud-builders/docker
+      args:
+          [
+              "push",
+              "$_REGION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/backend:$COMMIT_SHA",
+          ]
+
+    - id: push-frontend
+      name: gcr.io/cloud-builders/docker
+      args:
+          [
+              "push",
+              "$_REGION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/frontend:$COMMIT_SHA",
+          ]
+
+    # 7) Deploy — só troca a imagem da revisão; min/max instances e demais
+    #    configurações continuam as que o Terraform definiu (não repetidas
+    #    aqui de propósito, para não divergir da fonte da verdade).
+    - id: deploy-backend
+      name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+      entrypoint: gcloud
+      args:
+          - run
+          - deploy
+          - $_BACKEND_SERVICE
+          - --image=$_REGION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/backend:$COMMIT_SHA
+          - --region=$_REGION
+          - --project=$PROJECT_ID
+          - --quiet
+
+    - id: deploy-frontend
+      name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+      entrypoint: gcloud
+      args:
+          - run
+          - deploy
+          - $_FRONTEND_SERVICE
+          - --image=$_REGION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/frontend:$COMMIT_SHA
+          - --region=$_REGION
+          - --project=$PROJECT_ID
+          - --quiet
+
+    # 8) Health check pós-deploy — os dois serviços são públicos (allUsers),
+    #    então dá pra checar sem autenticação. Build falha (exit != 0) se
+    #    qualquer um não responder 2xx.
+    - id: health-check
+      name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+      entrypoint: bash
+      args:
+          - -c
+          - |
+              set -e
+              BACKEND_URL=$(gcloud run services describe "$_BACKEND_SERVICE" --project="$PROJECT_ID" --region="$_REGION" --format="value(status.url)")
+              FRONTEND_URL=$(gcloud run services describe "$_FRONTEND_SERVICE" --project="$PROJECT_ID" --region="$_REGION" --format="value(status.url)")
+
+              echo "Checando backend: $BACKEND_URL/health"
+              curl -sf "$BACKEND_URL/health"
+
+              echo "Checando frontend: $FRONTEND_URL/"
+              curl -sf "$FRONTEND_URL/" > /dev/null
+
+              echo "Health check OK."
+
+images:
+    - $_REGION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/backend:$COMMIT_SHA
+    - $_REGION-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/frontend:$COMMIT_SHA

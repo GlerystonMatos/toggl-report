@@ -1,0 +1,14 @@
+# Copie para terraform.tfvars (gitignored) e preencha com valores reais.
+
+app_project_id = "SEU_PROJETO_APP_ID"
+
+# Opcionais — os defaults já servem para a maioria dos casos:
+# region                            = "us-central1"
+# artifact_registry_repository_id  = "toggl-report"
+# keep_image_count                 = 2
+# frontend_service_name            = "toggl-report-front"
+# backend_service_name             = "toggl-report-back"
+# github_owner                     = "GlerystonMatos"
+# github_repo                      = "toggl-report"
+# deploy_branch_regex              = "^deploy$"
+# github_connection_name           = "github-connection"
