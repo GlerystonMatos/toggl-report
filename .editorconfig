@@ -49,3 +49,6 @@ end_of_line = lf
 
 [.dockerignore]
 end_of_line = lf
+
+[*.sh]
+end_of_line = lf

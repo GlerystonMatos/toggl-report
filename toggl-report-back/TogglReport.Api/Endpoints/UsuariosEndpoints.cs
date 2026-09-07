@@ -6,13 +6,13 @@ namespace RelatorioToggl.Api.Endpoints;
 
 public static class UsuariosEndpoints
 {
-    public static void MapUsuariosEndpoints(this WebApplication app, string caminhoConfiguracao)
+    public static void MapUsuariosEndpoints(this WebApplication app, string caminhoConfiguracao, string caminhoUsuarios)
     {
         RouteGroupBuilder grupo = app.MapGroup("/api/usuarios").WithTags("Usuários");
 
         grupo.MapGet("/", () =>
         {
-            ConfiguracaoApp configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao) ?? new ConfiguracaoApp();
+            ConfiguracaoApp configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao, caminhoUsuarios) ?? new ConfiguracaoApp();
             List<UsuarioResumoDto> usuarios = configuracao.Usuarios
                 .Select(u => new UsuarioResumoDto(u.Chave, u.NomeExibicao, ServicoUsuarios.MascararToken(u.TokenApi), u.Sigla, u.Cor, u.Selecionado))
                 .ToList();
@@ -36,7 +36,7 @@ public static class UsuariosEndpoints
             if (string.IsNullOrWhiteSpace(request.NomeExibicao))
                 return Results.BadRequest("Nome de exibição é obrigatório.");
 
-            ConfiguracaoApp configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao) ?? new ConfiguracaoApp();
+            ConfiguracaoApp configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao, caminhoUsuarios) ?? new ConfiguracaoApp();
 
             if (ServicoUsuarios.NomeEmUso(configuracao.Usuarios, request.NomeExibicao, ignorar: null))
                 return Results.Conflict($"Já existe um usuário chamado '{request.NomeExibicao}'.");
@@ -60,7 +60,7 @@ public static class UsuariosEndpoints
 
             try
             {
-                CarregadorConfiguracaoIni.Salvar(caminhoConfiguracao, configuracao);
+                CarregadorConfiguracaoIni.Salvar(caminhoConfiguracao, caminhoUsuarios, configuracao);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -74,7 +74,7 @@ public static class UsuariosEndpoints
 
         grupo.MapPut("/{chave}", async (string chave, EditarUsuarioRequest request) =>
         {
-            ConfiguracaoApp configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao) ?? new ConfiguracaoApp();
+            ConfiguracaoApp configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao, caminhoUsuarios) ?? new ConfiguracaoApp();
             ConfiguracaoUsuario? usuario = configuracao.Usuarios.FirstOrDefault(u => u.Chave == chave);
             if (usuario is null)
                 return Results.NotFound();
@@ -118,7 +118,7 @@ public static class UsuariosEndpoints
 
             try
             {
-                CarregadorConfiguracaoIni.Salvar(caminhoConfiguracao, configuracao);
+                CarregadorConfiguracaoIni.Salvar(caminhoConfiguracao, caminhoUsuarios, configuracao);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -131,7 +131,7 @@ public static class UsuariosEndpoints
 
         grupo.MapDelete("/{chave}", (string chave) =>
         {
-            ConfiguracaoApp configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao) ?? new ConfiguracaoApp();
+            ConfiguracaoApp configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao, caminhoUsuarios) ?? new ConfiguracaoApp();
             ConfiguracaoUsuario? usuario = configuracao.Usuarios.FirstOrDefault(u => u.Chave == chave);
             if (usuario is null)
                 return Results.NotFound();
@@ -140,7 +140,7 @@ public static class UsuariosEndpoints
 
             try
             {
-                CarregadorConfiguracaoIni.Salvar(caminhoConfiguracao, configuracao);
+                CarregadorConfiguracaoIni.Salvar(caminhoConfiguracao, caminhoUsuarios, configuracao);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {

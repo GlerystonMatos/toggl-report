@@ -5,13 +5,13 @@ namespace RelatorioToggl.Api.Endpoints;
 
 public static class ConfiguracaoEndpoints
 {
-    public static void MapConfiguracaoEndpoints(this WebApplication app, string caminhoConfiguracao)
+    public static void MapConfiguracaoEndpoints(this WebApplication app, string caminhoConfiguracao, string caminhoUsuarios)
     {
         RouteGroupBuilder grupo = app.MapGroup("/api/configuracao").WithTags("Configuração");
 
         grupo.MapGet("/", () =>
         {
-            ConfiguracaoApp configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao) ?? new ConfiguracaoApp();
+            ConfiguracaoApp configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao, caminhoUsuarios) ?? new ConfiguracaoApp();
             return Results.Ok(new ParametrosConfiguracaoDto(
                 configuracao.AgrupamentoPadrao, configuracao.TagsDetalhadas, configuracao.DataInicioAnterior, configuracao.DataFimAnterior));
         })
@@ -28,7 +28,7 @@ public static class ConfiguracaoEndpoints
             if (fim < inicio)
                 return Results.BadRequest("A data fim não pode ser anterior à data início.");
 
-            ConfiguracaoApp configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao) ?? new ConfiguracaoApp();
+            ConfiguracaoApp configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao, caminhoUsuarios) ?? new ConfiguracaoApp();
             configuracao.AgrupamentoPadrao = request.Agrupamento;
             configuracao.TagsDetalhadas = request.TagsDetalhadas;
             configuracao.DataInicioAnterior = inicio.ToString("yyyy-MM-dd");
@@ -36,7 +36,7 @@ public static class ConfiguracaoEndpoints
 
             try
             {
-                CarregadorConfiguracaoIni.Salvar(caminhoConfiguracao, configuracao);
+                CarregadorConfiguracaoIni.Salvar(caminhoConfiguracao, caminhoUsuarios, configuracao);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {

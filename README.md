@@ -6,7 +6,7 @@ Este repositório reúne três projetos independentes:
 
 ## [`toggl-report-back/`](./toggl-report-back/README.md) — C# / .NET 10
 
-Console interativo original **+** uma Web API local (sem autenticação, documentada via Swagger) que expõe as mesmas funcionalidades, além de uma biblioteca compartilhada entre os dois. Consulta o Toggl Track, faz cache do retorno em INI (`dados/`), agrupa por descrição/tag e permite busca por parte da descrição.
+Console interativo original **+** uma Web API local (autenticação HTTP Basic opcional, documentada via Swagger) que expõe as mesmas funcionalidades, além de uma biblioteca compartilhada entre os dois. Consulta o Toggl Track, faz cache do retorno em INI (`dados/`), agrupa por descrição/tag e permite busca por parte da descrição.
 
 ➡️ **[Documentação completa do back-end](./toggl-report-back/README.md)**
 
@@ -27,7 +27,9 @@ Infraestrutura de deploy em produção no Google Cloud (Cloud Run + Cloud Build 
 ```bash
 # 1. Web API (porta fixa 5180)
 dotnet run --project toggl-report-back/TogglReport.Api
+```
 
+```bash
 # 2. Frontend (em outro terminal)
 cd toggl-report-front && npm install && npm run dev
 ```
@@ -54,9 +56,15 @@ para apontar para outro endereço, ajuste `args.VITE_API_URL` do serviço
 `toggl_report_web` em `docker-compose.yml` e rode `docker-compose up -d --build`
 de novo.
 
+A pasta `dados/` (bind mount do host) é ajustada automaticamente para o
+usuário não-root da imagem no início do container (`entrypoint.sh` da Api) —
+sem isso, gravações nela (ex.: restaurar backup pelo frontend) falhavam com
+`UnauthorizedAccessException`, já que o Docker cria o ponto de montagem como
+`root` por padrão. Ver [README do back-end](./toggl-report-back/README.md#docker).
+
 ## Segurança
 
-Os arquivos `TogglRelatorioParametros.ini`/`TogglRelatorioData.ini` (gerados na pasta `dados/` de cada executável) guardam API Tokens do Toggl em **texto puro** e nunca são versionados (`.gitignore`). A Web API não tem autenticação — destinada a uso exclusivamente local.
+Os arquivos `TogglUsuarios.ini`/`TogglRelatorioData.ini` (gerados na pasta `dados/` de cada executável) guardam API Tokens do Toggl **criptografados** e nunca são versionados (`.gitignore`); `TogglRelatorioParametros.ini` (agrupamento/tags/período) fica ao lado, sem dado sensível. A Web API não exige autenticação por padrão (uso local) — pode ser ligada (`AUTH__USUARIO`/`AUTH__SENHA`) para uso exposto, com tela de login própria no frontend em vez do popup nativo do navegador (ver `toggl-report-back/README.md#segurança`).
 
 Revisado (2026-09-06) o conteúdo rastreado pelo Git em busca de segredos antes deste repositório se tornar público: nenhuma chave de API, token do GitHub/GCP, credencial de service account ou dado real de usuário foi encontrado versionado. Dois pontos corrigidos: a senha do certificado HTTPS do `docker-compose.yml` estava em texto puro — movida para `.env` (gitignored, com `.env.example` como template); e os IDs reais dos dois projetos GCP foram substituídos por placeholders (`SEU_PROJETO_APP_ID`/`SEU_PROJETO_FINOPS_ID`) em todo `toggl-report-infra/` e nos READMEs — nenhum identificador real de projeto GCP permanece versionado.
 

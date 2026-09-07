@@ -1,7 +1,10 @@
 import { tema } from './theme';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
+import { useAuth } from './features/auth/useAuth';
 import { GantView } from './features/gant/GantView';
+import LogoutIcon from '@mui/icons-material/Logout';
+import { LoginScreen } from './features/auth/LoginScreen';
 import { ProvedorNotificacao } from './hooks/useNotificacao';
 import { useConsulta } from './features/consulta/useConsulta';
 import { useUsuarios } from './features/usuarios/useUsuarios';
@@ -13,11 +16,12 @@ import { RelatorioView } from './features/relatorio/RelatorioView';
 import { ParametrosForm } from './features/configuracao/ParametrosForm';
 import { ParametrosGantForm } from './features/gant/ParametrosGantForm';
 import { BotaoComCarregamento } from './components/BotaoComCarregamento';
+import { ImportarDadosDialog } from './features/dados/ImportarDadosDialog';
 
 import type {
+    ParametrosGant,
     ConsultarResponse,
     ParametrosConfiguracao,
-    ParametrosGant,
 } from './api/tipos';
 
 import {
@@ -27,10 +31,12 @@ import {
     Tabs,
     Alert,
     AppBar,
+    Tooltip,
     Stepper,
     Toolbar,
     Container,
     StepButton,
+    IconButton,
     Typography,
     CssBaseline,
     ThemeProvider,
@@ -39,7 +45,11 @@ import {
 const ETAPAS_RELATORIO = ['Parâmetros', 'Consulta', 'Resultado'] as const;
 const ETAPAS_GANT = ['Parâmetros', 'Consulta', 'Resultado'] as const;
 
-function AppInterno(): ReactNode {
+interface AppInternoProps {
+    onSair: () => void;
+}
+
+function AppInterno({ onSair }: AppInternoProps): ReactNode {
     const [modo, setModo] = useState<'usuarios' | 'relatorio' | 'gant'>('usuarios');
 
     const [etapaAtiva, setEtapaAtiva] = useState(0);
@@ -57,8 +67,21 @@ function AppInterno(): ReactNode {
     const { usuarios, carregando: carregandoUsuarios, carregar: carregarUsuarios } = useUsuarios();
     const semUsuarios = !carregandoUsuarios && usuarios.length === 0;
 
+    const [, setVerificacaoInicialFeita] = useState(false);
+    const [dialogoImportarAberto, setDialogoImportarAberto] = useState(false);
+    const [chaveUsuariosPanel, setChaveUsuariosPanel] = useState(0);
+
     useEffect(() => {
-        carregarUsuarios().catch(() => { });
+        carregarUsuarios()
+            .then((lista) => {
+                setVerificacaoInicialFeita((jaFeita) => {
+                    if (!jaFeita && lista.length === 0) {
+                        setDialogoImportarAberto(true);
+                    }
+                    return true;
+                });
+            })
+            .catch(() => { });
     }, [etapaAtiva, etapaGantAtiva, modo, carregarUsuarios]);
 
     function alternarSelecao(chave: string): void {
@@ -106,6 +129,11 @@ function AppInterno(): ReactNode {
                             REPORT
                         </Box>
                     </Typography>
+                    <Tooltip title="Sair">
+                        <IconButton color="inherit" onClick={onSair} aria-label="sair">
+                            <LogoutIcon />
+                        </IconButton>
+                    </Tooltip>
                 </Toolbar>
             </AppBar>
 
@@ -135,7 +163,7 @@ function AppInterno(): ReactNode {
                 ) : undefined}
 
                 {modo === 'usuarios' ? (
-                    <UsuariosPanel />
+                    <UsuariosPanel key={chaveUsuariosPanel} />
                 ) : undefined}
 
                 {modo === 'relatorio' ? (
@@ -156,8 +184,7 @@ function AppInterno(): ReactNode {
                                 onSalvo={(config) => {
                                     setConfiguracao(config);
                                     setEtapaAtiva(1);
-                                }}
-                            />
+                                }} />
                         ) : undefined}
 
                         {etapaAtiva === 1 && configuracao?.dataInicio && configuracao.dataFim ? (
@@ -177,8 +204,7 @@ function AppInterno(): ReactNode {
                                         setSelecionados(new Set());
                                     }
                                     setEtapaAtiva(2);
-                                }}
-                            />
+                                }} />
                         ) : undefined}
 
                         {etapaAtiva === 2 && consultaConcluida ? (
@@ -188,8 +214,7 @@ function AppInterno(): ReactNode {
                                 selecionados={selecionados}
                                 onAlternarSelecao={alternarSelecao}
                                 onVoltar={() => setEtapaAtiva(1)}
-                                veioDoCache={consultaConcluida.veioDoCache}
-                            />
+                                veioDoCache={consultaConcluida.veioDoCache} />
                         ) : undefined}
                     </>
                 ) : undefined}
@@ -212,8 +237,7 @@ function AppInterno(): ReactNode {
                                 onSalvo={(params) => {
                                     setConfiguracaoGant(params);
                                     setEtapaGantAtiva(1);
-                                }}
-                            />
+                                }} />
                         ) : undefined}
 
                         {etapaGantAtiva === 1 && configuracaoGant?.dataInicio && configuracaoGant.dataFim ? (
@@ -230,8 +254,7 @@ function AppInterno(): ReactNode {
                                 onConcluida={(resposta) => {
                                     setConsultaGantConcluida(resposta);
                                     setEtapaGantAtiva(2);
-                                }}
-                            />
+                                }} />
                         ) : undefined}
 
                         {etapaGantAtiva === 2 && consultaGantConcluida ? (
@@ -239,24 +262,38 @@ function AppInterno(): ReactNode {
                                 dataInicio={consultaGantConcluida.dataInicio}
                                 dataFim={consultaGantConcluida.dataFim}
                                 onVoltar={() => setEtapaGantAtiva(1)}
-                                veioDoCache={consultaGantConcluida.veioDoCache}
-                            />
+                                veioDoCache={consultaGantConcluida.veioDoCache} />
                         ) : undefined}
                     </>
                 ) : undefined}
 
                 <RodapeDownloads />
             </Container>
+
+            <ImportarDadosDialog
+                aberto={dialogoImportarAberto}
+                onFechar={() => setDialogoImportarAberto(false)}
+                onImportado={() => {
+                    setDialogoImportarAberto(false);
+                    carregarUsuarios().catch(() => { });
+                    setChaveUsuariosPanel((atual) => atual + 1);
+                }} />
         </Box>
     );
 }
 
 export default function App(): ReactNode {
+    const { autenticado, verificando, entrando, erro, entrar, sair } = useAuth();
+
     return (
         <ThemeProvider theme={tema}>
             <CssBaseline />
             <ProvedorNotificacao>
-                <AppInterno />
+                {verificando ? undefined : autenticado ? (
+                    <AppInterno onSair={sair} />
+                ) : (
+                    <LoginScreen entrando={entrando} erro={erro} onEntrar={(usuario, senha) => void entrar(usuario, senha)} />
+                )}
             </ProvedorNotificacao>
         </ThemeProvider>
     );

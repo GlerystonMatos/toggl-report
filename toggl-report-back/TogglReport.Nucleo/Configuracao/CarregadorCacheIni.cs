@@ -36,7 +36,7 @@ public static class CarregadorCacheIni
             {
                 Chave = chave,
                 NomeExibicao = AnalisadorIni.ObterOuPadrao(valores, "NomeExibicao", chave),
-                TokenApi = AnalisadorIni.ObterOuPadrao(valores, "TokenApi", ""),
+                TokenApi = CriptografiaToken.Descriptografar(AnalisadorIni.ObterOuPadrao(valores, "TokenApi", "")),
                 Registros = DesserializarRegistros(AnalisadorIni.ObterOuPadrao(valores, "Registros", "[]"))
             });
         }
@@ -59,7 +59,7 @@ public static class CarregadorCacheIni
         {
             sb.AppendLine($"[{PrefixoSecaoUsuario}{usuario.Chave}]");
             sb.AppendLine($"NomeExibicao={usuario.NomeExibicao}");
-            sb.AppendLine($"TokenApi={usuario.TokenApi}");
+            sb.AppendLine($"TokenApi={CriptografiaToken.Criptografar(usuario.TokenApi)}");
             sb.AppendLine($"Registros={JsonSerializer.Serialize(usuario.Registros, OpcoesJson)}");
             sb.AppendLine();
         }

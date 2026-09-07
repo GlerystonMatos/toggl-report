@@ -1,3 +1,4 @@
+using RelatorioToggl.Api.Autenticacao;
 using RelatorioToggl.Api.Endpoints;
 using RelatorioToggl.Configuracao;
 using System.Text.Json.Serialization;
@@ -17,20 +18,42 @@ builder.Services.ConfigureHttpJsonOptions(opcoes =>
 
 builder.Services.AddHealthChecks();
 
+bool autenticacaoBasicaHabilitada = !string.IsNullOrEmpty(builder.Configuration["AUTH:USUARIO"])
+    && !string.IsNullOrEmpty(builder.Configuration["AUTH:SENHA"]);
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(opcoes =>
 {
     opcoes.SwaggerDoc("v1", new Microsoft.OpenApi.OpenApiInfo
     {
-        Title = "TogglReport",
+        Title = "Toggl Report API",
         Version = "v1",
-        Description = "API local, sem autenticação, que expõe as mesmas funcionalidades do console TogglReport: parâmetros, usuários/tokens, consulta com cache, relatório e busca por descrição."
+        Description = "API local que expõe as mesmas funcionalidades do console TogglReport: parâmetros, usuários/tokens, consulta com cache, relatório e busca por descrição. Autenticação HTTP Basic opcional — ativa quando AUTH__USUARIO/AUTH__SENHA estão configurados; /health, /swagger e /images nunca exigem autenticação."
     });
+
+    if (autenticacaoBasicaHabilitada)
+    {
+        opcoes.AddSecurityDefinition("basic", new Microsoft.OpenApi.OpenApiSecurityScheme
+        {
+            Name = "Authorization",
+            Type = Microsoft.OpenApi.SecuritySchemeType.Http,
+            Scheme = "basic",
+            In = Microsoft.OpenApi.ParameterLocation.Header,
+            Description = "Usuário/senha configurados em AUTH__USUARIO/AUTH__SENHA."
+        });
+
+        opcoes.AddSecurityRequirement(documento => new Microsoft.OpenApi.OpenApiSecurityRequirement
+        {
+            [new Microsoft.OpenApi.OpenApiSecuritySchemeReference("basic", documento)] = new List<string>()
+        });
+    }
 });
 
 WebApplication app = builder.Build();
 
 app.UseCors(PoliticaCorsLocal);
+
+app.UseAutenticacaoBasica();
 
 app.UseStaticFiles();
 
@@ -39,7 +62,8 @@ app.MapHealthChecks("/health");
 app.UseSwagger();
 app.UseSwaggerUI(opcoes =>
 {
-    opcoes.SwaggerEndpoint("/swagger/v1/swagger.json", "TogglReport API");
+    opcoes.SwaggerEndpoint("/swagger/v1/swagger.json", "Toggl Report API");
+    opcoes.DocumentTitle = "Toggl Report API";
     opcoes.RoutePrefix = "swagger";
     opcoes.HeadContent = """
         <style>
@@ -84,17 +108,18 @@ app.UseSwaggerUI(opcoes =>
 });
 
 string caminhoConfiguracao = CaminhosDados.CaminhoConfiguracao(AppContext.BaseDirectory);
+string caminhoUsuarios = CaminhosDados.CaminhoUsuarios(AppContext.BaseDirectory);
 string caminhoCache = CaminhosDados.CaminhoCache(AppContext.BaseDirectory);
 string caminhoParametrosGant = CaminhosDados.CaminhoParametrosGant(AppContext.BaseDirectory);
 string caminhoCacheGant = CaminhosDados.CaminhoCacheGant(AppContext.BaseDirectory);
 string pastaDados = CaminhosDados.PastaDados(AppContext.BaseDirectory);
 
-app.MapConfiguracaoEndpoints(caminhoConfiguracao);
-app.MapUsuariosEndpoints(caminhoConfiguracao);
-app.MapConsultasEndpoints(caminhoConfiguracao, caminhoCache);
-app.MapRelatorioEndpoints(caminhoConfiguracao, caminhoCache);
-app.MapBuscaEndpoints(caminhoConfiguracao, caminhoCache);
+app.MapConfiguracaoEndpoints(caminhoConfiguracao, caminhoUsuarios);
+app.MapUsuariosEndpoints(caminhoConfiguracao, caminhoUsuarios);
+app.MapConsultasEndpoints(caminhoConfiguracao, caminhoUsuarios, caminhoCache);
+app.MapRelatorioEndpoints(caminhoConfiguracao, caminhoUsuarios, caminhoCache);
+app.MapBuscaEndpoints(caminhoConfiguracao, caminhoUsuarios, caminhoCache);
 app.MapDadosEndpoints(pastaDados);
-app.MapGantEndpoints(caminhoConfiguracao, caminhoParametrosGant, caminhoCacheGant);
+app.MapGantEndpoints(caminhoConfiguracao, caminhoUsuarios, caminhoParametrosGant, caminhoCacheGant);
 
 app.Run();

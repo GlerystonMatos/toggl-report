@@ -416,5 +416,6 @@ Coverage/*
 # Configuração local (API Tokens em texto puro) e cache de consulta (tratar como segredo)
 TogglRelatorioParametros.ini
 TogglRelatorioData.ini
+TogglUsuarios.ini
 TogglGantParametros.ini
 TogglGantData.ini

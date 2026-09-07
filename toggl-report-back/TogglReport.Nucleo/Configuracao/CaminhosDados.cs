@@ -5,21 +5,30 @@ public static class CaminhosDados
     private const string NomePasta = "dados";
 
     private const string NomeArquivoConfiguracao = "TogglRelatorioParametros.ini";
+
     private const string NomeArquivoConfiguracaoAntigo = "TogglReport.ini";
 
+    private const string NomeArquivoUsuarios = "TogglUsuarios.ini";
+
     private const string NomeArquivoCache = "TogglRelatorioData.ini";
+
     private const string NomeArquivoCacheAntigo = "ToggleData.ini";
 
     private const string NomeArquivoParametrosGant = "TogglGantParametros.ini";
+
     private const string NomeArquivoParametrosGantAntigo = "ToggleGantParametros.ini";
 
     private const string NomeArquivoCacheGant = "TogglGantData.ini";
+
     private const string NomeArquivoCacheGantAntigo = "ToggleGantData.ini";
 
     public static string PastaDados(string diretorioBase) => Path.Combine(diretorioBase, NomePasta);
 
     public static string CaminhoConfiguracao(string diretorioBase) =>
         CaminhoComMigracao(diretorioBase, NomeArquivoConfiguracao, NomeArquivoConfiguracaoAntigo);
+
+    public static string CaminhoUsuarios(string diretorioBase) =>
+        Path.Combine(PastaDados(diretorioBase), NomeArquivoUsuarios);
 
     public static string CaminhoCache(string diretorioBase) =>
         CaminhoComMigracao(diretorioBase, NomeArquivoCache, NomeArquivoCacheAntigo);

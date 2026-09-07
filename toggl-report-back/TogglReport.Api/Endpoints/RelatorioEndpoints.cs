@@ -8,14 +8,14 @@ namespace RelatorioToggl.Api.Endpoints;
 
 public static class RelatorioEndpoints
 {
-    public static void MapRelatorioEndpoints(this WebApplication app, string caminhoConfiguracao, string caminhoCache)
+    public static void MapRelatorioEndpoints(this WebApplication app, string caminhoConfiguracao, string caminhoUsuarios, string caminhoCache)
     {
         app.MapGet("/api/relatorio", (string dataInicio, string dataFim) =>
         {
             if (!DateTime.TryParse(dataInicio, out _) || !DateTime.TryParse(dataFim, out _))
                 return Results.BadRequest("Datas inválidas. Use o formato AAAA-MM-DD.");
 
-            ConfiguracaoApp? configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao);
+            ConfiguracaoApp? configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao, caminhoUsuarios);
             if (configuracao is null || configuracao.Usuarios.Count == 0)
                 return Results.BadRequest("Nenhum usuário cadastrado.");
 
