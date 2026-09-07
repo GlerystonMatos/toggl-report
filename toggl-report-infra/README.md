@@ -5,6 +5,104 @@ zero**: Cloud Run (frontend + backend) + Cloud Build (CI/CD) + Artifact
 Registry, sem banco de dados, sem ambiente de homologação — só a branch
 `deploy` disparando produção.
 
+## Arquitetura da stack
+
+```mermaid
+flowchart TB
+    dev(["Você"]):::ext
+    user(["Navegador do usuário"]):::ext
+    toggl(["Toggl Track API v9"]):::ext
+    gh(["GitHub — branch deploy"]):::ext
+
+    subgraph APP["Projeto GCP: app (toggl-report-app)"]
+      direction TB
+      subgraph CICD["CI / CD"]
+        conn["Cloud Build · GitHub connection (2a geracao)"]
+        trig["Trigger deploy-producao · filtro ^deploy$"]
+        pipe["Cloud Build pipeline · cloudbuild.yaml (8 steps)"]
+        ar[("Artifact Registry · Docker<br/>backend / frontend · mantem as 2 ultimas")]
+      end
+      subgraph RUN["Runtime · scale-to-zero (min 0 / max 1) · publico"]
+        be["Cloud Run: toggl-report-back<br/>.NET 10 / Kestrel :8080"]
+        fe["Cloud Run: toggl-report-front<br/>React 19 + Vite + nginx :8080"]
+      end
+      sm["Secret Manager · token OAuth do GitHub"]
+      saD{{"SA cloud-build-deployer<br/>artifactregistry.writer · run.developer"}}
+    end
+
+    subgraph FIN["Projeto GCP: finops (killswitch de billing)"]
+      direction TB
+      bud["Cloud Billing Budget · alerta em R$ 0,01"]
+      top[["Pub/Sub · budget-notifications"]]
+      fn["Cloud Function gen2: billing-killswitch<br/>Python 3.12 · Eventarc"]
+      gcs[("Cloud Storage · zip do codigo da function")]
+      saK{{"SA billing-killswitch · roles/billing.admin"}}
+    end
+
+    dev --> gh --> trig --> pipe
+    conn -. viabiliza .-> trig
+    conn -. le .-> sm
+    pipe -. identidade .-> saD
+    pipe -->|"build + push"| ar
+    pipe -->|"gcloud run deploy"| be
+    pipe -->|"gcloud run deploy"| fe
+    ar -. pull da imagem .-> be
+    ar -. pull da imagem .-> fe
+
+    user -->|HTTPS| fe
+    fe -->|"VITE_API_URL fixado no build"| be
+    be -->|"consulta de time entries"| toggl
+
+    bud --> top --> fn
+    fn -. codigo .-> gcs
+    fn -. identidade .-> saK
+    fn ==>|"desabilita o billing do projeto"| APP
+
+    classDef ext fill:#f5f5f5,stroke:#999,color:#333;
+    style APP fill:#e8f0fe,stroke:#4285f4
+    style FIN fill:#fce8e6,stroke:#ea4335
+    style RUN fill:#d2e3fc,stroke:#4285f4
+    style CICD fill:#eef4ff,stroke:#7aa7f0
+```
+
+### O que roda, como e por quê
+
+**Projeto `app` — a aplicação e sua pipeline**
+
+| Componente | Tecnologia | Como está sendo usado | Por quê |
+|---|---|---|---|
+| **Cloud Run — backend** | .NET 10 / Kestrel, container `:8080` | Serve a Web API (`toggl-report-back`); `min_instance_count=0`, `max_instance_count=1`, público (`allUsers`) | Escala a zero sem tráfego = custo zero na operação normal; teto de 1 instância evita surpresa de conta. Sem auth na infra porque a proteção é opcional no próprio app (HTTP Basic via env var) |
+| **Cloud Run — frontend** | React 19 + Vite, servido por nginx, container `:8080` | Serve a SPA (`toggl-report-front`); mesma config de escala e acesso público | SPA estática consumida direto pelo navegador do usuário; a URL do backend (`VITE_API_URL`) é gravada no bundle em *build time*, não em runtime |
+| **Artifact Registry** | Repositório Docker (`toggl-report`) | Guarda as imagens `backend:<sha>` e `frontend:<sha>` de cada deploy; Cloud Run puxa a imagem de lá | Duas *cleanup policies* (KEEP + DELETE) mantêm só as 2 versões mais recentes de cada serviço → storage mínimo |
+| **Cloud Build — trigger** | `deploy-producao`, regex de branch `^deploy$` | Dispara o pipeline a cada `git push` na branch `deploy` | Não há ambiente de homologação: a branch `deploy` **é** a produção |
+| **Cloud Build — pipeline** | `cloudbuild.yaml`, 8 steps | test (`dotnet build` / `npm ci && build && lint`) → build das 2 imagens Docker → push → `gcloud run deploy` dos 2 serviços → health check | `dotnet build`/`tsc` são o "teste" possível (o projeto não tem suíte automatizada); o health check falha o build se algum serviço não responder 2xx pós-deploy |
+| **Cloud Build — GitHub connection** | Conexão de 2ª geração, por região | Liga o repositório GitHub ao Cloud Build; o token OAuth fica no Secret Manager | É o mecanismo atual (o GitHub App clássico saiu do Console); criada **manualmente** (OAuth interativo) e adotada no state via `terraform import` |
+| **Secret Manager** | — | Armazena o token OAuth da conexão GitHub | Exigência da conexão de 2ª geração; a API é habilitada pelo Terraform mas o segredo em si não é gerenciado por ele |
+| **Service Account `cloud-build-deployer`** | IAM Service Account | Identidade do trigger: `artifactregistry.writer` + `run.developer` + `logging.logWriter` + `serviceAccountUser` sobre a SA default do Compute | Menor privilégio para build + push + deploy; `logWriter` é **obrigatório** quando o trigger usa SA customizada |
+| **SA default do Compute Engine** | IAM Service Account | Identidade de *runtime* dos 2 serviços Cloud Run | Evita criar 2 SAs extras não pedidas; o deployer só precisa poder "agir como" ela para fazer `gcloud run deploy` |
+
+**Projeto `finops` — o killswitch de orçamento (isolado de propósito, ver seção abaixo)**
+
+| Componente | Tecnologia | Como está sendo usado | Por quê |
+|---|---|---|---|
+| **Cloud Billing Budget** | Orçamento (criado via `gcloud`, fora do Terraform) | Alerta configurado em `R$ 0,01` / `1%` → publica no tópico Pub/Sub | "Avise no primeiro centavo de gasto"; a criação do Budget depende de recursos que só existem após o `apply` e não entrou no escopo de automação |
+| **Pub/Sub `budget-notifications`** | Tópico | Único canal entre o Budget e a Function | É o padrão oficial do Google para *"disable billing with notifications"* |
+| **Cloud Function `billing-killswitch`** | Python 3.12, gen2, gatilho Eventarc | **Qualquer** mensagem no tópico → desabilita o billing do projeto `app` (`billing_account_name=""`) | Não inspeciona o conteúdo da mensagem (o tópico só recebe alerta desse budget); transforma "conta subindo" em "projeto suspenso" antes de virar fatura alta |
+| **Cloud Storage (bucket de source)** | Bucket dedicado | Guarda o `.zip` do código da Function (empacotado pelo provider `archive`) | `google_cloudfunctions2_function` exige `storage_source` em GCS — não aceita código inline nem Git |
+| **Eventarc** | — | Entrega as mensagens Pub/Sub → Function gen2 | Obrigatório para *event trigger* de Function gen2 com SA customizada |
+| **Service Account `billing-killswitch`** | IAM Service Account | `roles/billing.admin` concedido **na billing account** (não no projeto) | Permissão mínima para desligar o billing de outro projeto; a Cloud Billing API valida esse papel no nível da billing account |
+
+**Transversal aos dois**
+
+| Componente | Tecnologia | Como está sendo usado | Por quê |
+|---|---|---|---|
+| **Terraform** | `>= 1.9`, provider `google` (+ `archive` no `finops`) | Duas árvores independentes (`terraform/app/`, `terraform/finops/`), cada uma com seu state | State **local** e gitignored: projeto pessoal, sem colaboração em equipe → não compensa provisionar um bucket GCS só para o state |
+| **Dois projetos GCP separados** | — | `finops` provisiona o mecanismo que protege `app` | Se `app` for suspenso por estouro de orçamento, tudo dentro dele para junto — o killswitch precisa viver **fora** para sobreviver à própria ação e permitir religar/diagnosticar |
+| **GitHub (`glerystonmatos/toggl-report`)** | Repositório | Fonte do código; push na branch `deploy` dispara o build | Deploy baseado em Git, sem console/upload manual |
+| **Toggl Track API v9** | API externa | Consumida pelo backend **em runtime** para buscar os *time entries* | É a fonte de dados da aplicação; nada é persistido na infra (sem banco) |
+
+> Legenda do diagrama: caixa azul = projeto `app`, caixa vermelha = projeto `finops`. Setas tracejadas = dependência de configuração/identidade; seta grossa = ação do killswitch (desliga o billing do projeto inteiro).
+
 ## Duas árvores Terraform, dois projetos GCP, de propósito
 
 ```
