@@ -6,7 +6,7 @@ namespace RelatorioToggl.Api.Endpoints;
 
 public static class ConsultasEndpoints
 {
-    public static void MapConsultasEndpoints(this WebApplication app, string caminhoConfiguracao, string caminhoCache)
+    public static void MapConsultasEndpoints(this WebApplication app, string caminhoConfiguracao, string caminhoUsuarios, string caminhoCache)
     {
         app.MapPost("/api/consultas", async (ConsultarRequest request) =>
         {
@@ -16,7 +16,7 @@ public static class ConsultasEndpoints
             if (fim < inicio)
                 return Results.BadRequest("A data fim não pode ser anterior à data início.");
 
-            ConfiguracaoApp? configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao);
+            ConfiguracaoApp? configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao, caminhoUsuarios);
             if (configuracao is not null)
                 configuracao.Usuarios = configuracao.Usuarios.Where(u => u.Selecionado).ToList();
 

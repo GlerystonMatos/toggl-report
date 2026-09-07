@@ -3,6 +3,7 @@ using RelatorioToggl.Configuracao;
 using RelatorioToggl.Consultas;
 using RelatorioToggl.Relatorios;
 using RelatorioToggl.Toggl;
+using System.IO.Compression;
 using System.Text;
 
 namespace RelatorioToggl;
@@ -12,6 +13,8 @@ public static class Program
     private const string Versao = "1.0.1.0";
 
     private static readonly string CaminhoConfiguracao = CaminhosDados.CaminhoConfiguracao(AppContext.BaseDirectory);
+
+    private static readonly string CaminhoUsuarios = CaminhosDados.CaminhoUsuarios(AppContext.BaseDirectory);
 
     private static readonly string CaminhoCache = CaminhosDados.CaminhoCache(AppContext.BaseDirectory);
 
@@ -23,9 +26,44 @@ public static class Program
         Tela.BemVindo(Versao);
         Tela.Carregando();
 
+        OfereceRestaurarBackupSeNecessario();
+
         await GerarRelatoriosEnquantoUsuarioQuiser();
 
         Tela.Despedida(Versao);
+    }
+
+    private static void OfereceRestaurarBackupSeNecessario()
+    {
+        if (CarregadorConfiguracaoIni.Carregar(CaminhoConfiguracao, CaminhoUsuarios) is not null)
+        {
+            return;
+        }
+
+        Paleta.EscreverLinha("\n Nenhuma configuração salva foi encontrada nesta pasta.", Paleta.Neutro);
+        if (!Prompt.Confirmar(" Restaurar de um backup (.zip da pasta dados)?", padraoSim: false))
+        {
+            return;
+        }
+
+        string caminhoZip = Prompt.Perguntar(" Caminho do arquivo .zip");
+        if (string.IsNullOrWhiteSpace(caminhoZip) || !File.Exists(caminhoZip))
+        {
+            Paleta.EscreverLinha(" Arquivo não encontrado — seguindo sem restaurar.", Paleta.Destaque);
+            return;
+        }
+
+        try
+        {
+            string pastaDados = CaminhosDados.PastaDados(AppContext.BaseDirectory);
+            Directory.CreateDirectory(pastaDados);
+            ZipFile.ExtractToDirectory(caminhoZip, pastaDados, overwriteFiles: true);
+            Paleta.EscreverLinha(" Backup restaurado com sucesso.", Paleta.Sucesso);
+        }
+        catch (Exception excecao) when (excecao is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            Paleta.EscreverLinha($" Não foi possível restaurar o backup: {excecao.Message}", Paleta.Erro);
+        }
     }
 
     private static async Task GerarRelatoriosEnquantoUsuarioQuiser()
@@ -60,7 +98,7 @@ public static class Program
     {
         while (true)
         {
-            ConfiguracaoApp? salvos = CarregadorConfiguracaoIni.Carregar(CaminhoConfiguracao);
+            ConfiguracaoApp? salvos = CarregadorConfiguracaoIni.Carregar(CaminhoConfiguracao, CaminhoUsuarios);
             ConfiguracaoApp configuracao = new();
 
             Tela.Cabecalho(Versao, configuracao);
@@ -84,7 +122,7 @@ public static class Program
     {
         try
         {
-            CarregadorConfiguracaoIni.Salvar(CaminhoConfiguracao, configuracao);
+            CarregadorConfiguracaoIni.Salvar(CaminhoConfiguracao, CaminhoUsuarios, configuracao);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

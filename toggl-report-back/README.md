@@ -7,7 +7,7 @@ Três projetos **C# / .NET 10** na mesma solução (`TogglReport.slnx`):
 | Projeto | Tipo | O que é |
 |---|---|---|
 | [`TogglReport.Console/`](#console-togglreportconsole) | Console (`Exe`) | O app interativo original |
-| [`TogglReport.Api/`](#web-api-togglreportapi) | Web API (Minimal APIs) | Expõe as mesmas funcionalidades por HTTP, sem autenticação |
+| [`TogglReport.Api/`](#web-api-togglreportapi) | Web API (Minimal APIs) | Expõe as mesmas funcionalidades por HTTP, com autenticação HTTP Basic opcional |
 | [`TogglReport.Nucleo/`](#núcleo-compartilhado-togglreportnucleo) | Biblioteca de classes | Modelos, acesso a INI e regras de negócio comuns aos dois acima |
 
 Console e Web API são interfaces diferentes para a **mesma lógica**: ambos consultam o Toggl Track, fazem cache do retorno cru em arquivos `.ini` dentro de uma pasta `dados/` (ao lado do executável de cada um) e agrupam/buscam sobre esse dado em runtime — nenhum dos dois duplica regra de negócio, tudo que é comum vive em `TogglReport.Nucleo`.
@@ -46,6 +46,9 @@ Console e Web API são interfaces diferentes para a **mesma lógica**: ambos con
 
 ```bash
 cd toggl-report-back
+```
+
+```bash
 dotnet build TogglReport.slnx
 ```
 
@@ -63,7 +66,12 @@ Console interativo que consulta o Toggl Track (`GET /me/time_entries`) usando o 
 dotnet run --project TogglReport.Console
 ```
 
-Na primeira execução, o app guia você por um cadastro inicial (agrupamento padrão, usuários/tokens, período) e cria a pasta `dados/` ao lado do executável. Nas execuções seguintes, carrega o `dados/TogglRelatorioParametros.ini` já existente e, se houver um `dados/TogglRelatorioData.ini` da última consulta com o mesmo período e usuários, oferece reaproveitá-lo.
+Se não houver nenhuma configuração salva (nem `dados/TogglRelatorioParametros.ini`
+nem `dados/TogglUsuarios.ini`), o app pergunta antes de qualquer outra coisa
+se você quer restaurar de um backup (`.zip` da pasta `dados/`); recusando ou
+sem informar um caminho válido, segue para o cadastro inicial normal.
+
+Na primeira execução, o app guia você por um cadastro inicial (agrupamento padrão, usuários/tokens, período) e cria a pasta `dados/` ao lado do executável. Nas execuções seguintes, carrega `dados/TogglRelatorioParametros.ini` (agrupamento/tags/período) e `dados/TogglUsuarios.ini` (usuários/tokens) já existentes e, se houver um `dados/TogglRelatorioData.ini` da última consulta com o mesmo período e usuários, oferece reaproveitá-lo.
 
 ### Funcionalidades
 
@@ -171,7 +179,7 @@ O cache também é usado como reserva automática quando o **limite de 30 requis
    1 - Voltar ao relatório completo   2 - Nova busca por descrição   3 - Continuar
 ```
 
-Busca por substring, case-insensitive, sobre os dados **já baixados** (sem nova chamada à API). Cada descrição aparece com o total somado de todos os usuários; abaixo dela, uma linha por usuário que tem tempo lançado ali, ordenadas por tempo decrescente. Depois de cada busca: **voltar ao relatório completo**, **nova busca** ou **continuar**.
+Busca por substring, case-insensitive, sobre os dados **já baixados** (sem nova chamada à API). Cada descrição aparece com o total somado de todos os usuários; abaixo dela, uma linha por usuário que tem tempo lançado ali, todas ordenadas por tempo decrescente. Depois de cada busca: **voltar ao relatório completo**, **nova busca** ou **continuar**.
 
 ### Como obter seu API Token do Toggl
 
@@ -188,7 +196,7 @@ Biblioteca de classes referenciada pelo `TogglReport.Console` (console) e pelo `
 
 | Pasta | Conteúdo |
 |---|---|
-| `Configuracao/` | `ConfiguracaoApp`/`ConfiguracaoUsuario` (modelo do `TogglRelatorioParametros.ini`), `CarregadorConfiguracaoIni`, `CacheConsulta`/`UsuarioCacheado` (modelo do `TogglRelatorioData.ini`), `CarregadorCacheIni`, `AnalisadorIni` (parser de INI compartilhado), `CaminhosDados` (monta os caminhos `dados/TogglRelatorioParametros.ini` e `dados/TogglRelatorioData.ini` a partir do diretório base de quem chama), `ServicoUsuarios` (gerar chave única, checar nome em uso, mascarar token) |
+| `Configuracao/` | `ConfiguracaoApp`/`ConfiguracaoUsuario` (modelo do `[Geral]` de `TogglRelatorioParametros.ini` + usuários em memória), `CarregadorConfiguracaoIni` (agrupamento/tags/período), `CarregadorUsuariosIni` (`TogglUsuarios.ini` — usuários/tokens, compartilhado com o Gantt), `CriptografiaToken` (AES do `TokenApi`), `CacheConsulta`/`UsuarioCacheado` (modelo do `TogglRelatorioData.ini`), `CarregadorCacheIni`, `AnalisadorIni` (parser de INI compartilhado), `CaminhosDados` (monta os caminhos `dados/TogglRelatorioParametros.ini`, `dados/TogglUsuarios.ini` e `dados/TogglRelatorioData.ini` a partir do diretório base de quem chama), `ServicoUsuarios` (gerar chave única, checar nome em uso, mascarar token) |
 | `Toggl/` | `ClienteApiToggl` (HTTP Basic contra `api.track.toggl.com/api/v9`), `RegistroTempoDto`, `ResultadoApiToggl`, `LimitadorRequisicoes` (limite de 30 req/hora, em memória, por processo) |
 | `Relatorios/` | `ServicoAgrupamento` (por descrição/tag, normalização "TEL"), `LinhaDescricao`, `ServicoBuscaDescricao`, `LinhaBusca`, `ResultadoBuscaDescricao` — tudo puro, devolve dados, nunca texto formatado |
 | `Consultas/` | `ServicoConsulta` — decide cache×API e aplica o rate limiter; `ResultadoConsulta`, `EventoConsultaUsuario`, `StatusConsultaUsuario` |
@@ -201,7 +209,7 @@ Este projeto **nunca** referencia `Console`, `Paleta` ou `Tela` — só lógica 
 
 ## Web API (`TogglReport.Api`)
 
-API HTTP local (Minimal APIs, ASP.NET Core), **sem autenticação** — expõe as mesmas funcionalidades do console para consumo do [frontend](../toggl-report-front/README.md) ou de qualquer outro cliente HTTP local.
+API HTTP local (Minimal APIs, ASP.NET Core), com autenticação HTTP Basic **opcional** (desligada por padrão, ver [Segurança](#segurança)) — expõe as mesmas funcionalidades do console para consumo do [frontend](../toggl-report-front/README.md) ou de qualquer outro cliente HTTP local.
 
 ### Como rodar
 
@@ -209,9 +217,9 @@ API HTTP local (Minimal APIs, ASP.NET Core), **sem autenticação** — expõe a
 dotnet run --project TogglReport.Api
 ```
 
-Sobe em `http://localhost:5180` (porta fixa, `Properties/launchSettings.json`). Swagger/OpenAPI em **`http://localhost:5180/swagger`** — documenta todos os endpoints com parâmetros, respostas e exemplos, sem exigir autenticação.
+Sobe em `http://localhost:5180` (porta fixa, `Properties/launchSettings.json`). Swagger/OpenAPI em **`http://localhost:5180/swagger`** — documenta todos os endpoints com parâmetros, respostas e exemplos, sem exigir autenticação para navegar. Quando `AUTH__USUARIO`/`AUTH__SENHA` estão configurados, o Swagger ganha um botão **"Authorize"** (esquema HTTP Basic) — informe as credenciais uma vez e as chamadas de teste feitas na própria UI já saem autenticadas.
 
-Cria sua **própria** pasta `dados/` (ao lado do executável da API) — independente da pasta `dados/` do console. Cada processo tem seu próprio arquivo `TogglRelatorioParametros.ini`/`TogglRelatorioData.ini` e seu próprio contador de rate limit; rodar os dois ao mesmo tempo não compartilha estado.
+Cria sua **própria** pasta `dados/` (ao lado do executável da API) — independente da pasta `dados/` do console. Cada processo tem seu próprio `TogglRelatorioParametros.ini`/`TogglUsuarios.ini`/`TogglRelatorioData.ini` e seu próprio contador de rate limit; rodar os dois ao mesmo tempo não compartilha estado.
 
 ### Endpoints
 
@@ -228,6 +236,7 @@ Cria sua **própria** pasta `dados/` (ao lado do executável da API) — indepen
 | `GET` | `/api/relatorio?dataInicio=&dataFim=` | Relatório agrupado a partir dos dados em cache |
 | `GET` | `/api/busca?termo=` | Busca por descrição sobre os dados em cache |
 | `GET` | `/api/dados/download` | Baixa a pasta `dados/` inteira compactada em `dados.zip` (todos os arquivos presentes no momento, sem lista fixa) |
+| `POST` | `/api/dados/restaurar` | Restaura a pasta `dados/` a partir de um `.zip` enviado (`multipart/form-data`, campo `arquivo`) — sobrescreve arquivos existentes, criando a pasta se ainda não existir. 400 se algum arquivo do zip estiver dentro de uma pasta (deve compactar o **conteúdo** de `dados/`, não a pasta em si); 500 com mensagem limpa em qualquer outra falha de I/O |
 | `GET` | `/api/gant/parametros` | Período, tags a detalhar e agrupamento do **Gantt** (independente do relatório) |
 | `PUT` | `/api/gant/parametros` | Atualiza os parâmetros do Gantt |
 | `POST` | `/api/gant/consultas` | Igual a `/api/consultas`, mas grava em `TogglGantData.ini` |
@@ -258,7 +267,7 @@ Cria sua **própria** pasta `dados/` (ao lado do executável da API) — indepen
 
 `/api/gant/*` é um segundo fluxo, com parâmetros (`ConfiguracaoGant`: período + tags a detalhar + agrupamento) e cache (`dados/TogglGantData.ini`) **independentes** do relatório — reaproveita a mesma lista de usuários e o mesmo `ServicoConsulta`, só troca o arquivo de cache. `GET /api/gant` devolve `{ dias, linhas }`: `dias` são só os **dias úteis** do período (sábado/domingo ocultos); cada linha pertence a um único usuário, agrupada por categoria (tag) + descrição — tags na lista "a detalhar" viram uma linha por descrição, as demais ficam agregadas numa única linha por tag. O parâmetro opcional `termo` filtra por descrição antes de agrupar (mesma rota, sem endpoint novo).
 
-Os usuários ganharam três campos exclusivos da versão web (persistidos no mesmo `TogglRelatorioParametros.ini`, ignorados pelo console): `sigla`/`cor` (identificação visual nas células do Gantt) e `selecionado` (`bool`, default `true` — só usuários selecionados entram na próxima consulta, seja do relatório ou do Gantt).
+Os usuários ganharam três campos exclusivos da versão web (persistidos no `TogglUsuarios.ini`, ignorados pelo console): `sigla`/`cor` (identificação visual nas células do Gantt) e `selecionado` (`bool`, default `true` — só usuários selecionados entram na próxima consulta, seja do relatório ou do Gantt).
 
 ### Decisões desta camada
 
@@ -266,10 +275,29 @@ Os usuários ganharam três campos exclusivos da versão web (persistidos no mes
 - **Stateless entre requisições**: a API nunca mantém os registros baixados em memória entre chamadas — toda leitura de relatório/busca **relê o `TogglRelatorioData.ini`**. Isso é o que permite reaproveitar o cache do jeito mais simples possível, sem sessão.
 - **CORS liberado** (`AllowAnyOrigin/Header/Method`) — uso exclusivamente local, sem dado sensível trafegando entre origens que importe proteger.
 - **Enums serializados como string** (`JsonStringEnumConverter`) — `status` de `/api/consultas` aparece como texto no JSON, não como número.
-- **Swashbuckle.AspNetCore** — única dependência NuGet do repositório (necessária para o Swagger; o console continua com zero dependências). A UI do Swagger tem CSS próprio injetado (`SwaggerUIOptions.HeadContent`) e usa o ícone do projeto (servido via `app.UseStaticFiles()`, a única pasta estática da API). Não tem tema escuro nativo — segue o SO/navegador do usuário; uma tentativa de forçar tema claro via `color-scheme` foi testada e revertida por não funcionar na prática (ver `CLAUDE.md` §4.7).
-- **Sem autenticação/autorização** — por design, para uso local.
+- **Swashbuckle.AspNetCore** — única dependência NuGet do repositório (necessária para o Swagger; o console continua com zero dependências). A UI do Swagger tem CSS próprio injetado (`SwaggerUIOptions.HeadContent`) e usa o ícone do projeto (servido via `app.UseStaticFiles()`, a única pasta estática da API). Não tem tema escuro nativo — segue o SO/navegador do usuário; uma tentativa de forçar tema claro via `color-scheme` foi testada e revertida por não funcionar na prática (ver `CLAUDE.md` §4.7). Quando a autenticação Basic está ligada, `AddSecurityDefinition`/`AddSecurityRequirement` registram o esquema `basic` só nesse caso (mesma condição do middleware) — é o que faz o botão "Authorize" aparecer no Swagger UI.
+- **Autenticação HTTP Basic opcional** — desligada por padrão (uso local);
+  liga configurando `AUTH__USUARIO`/`AUTH__SENHA` (produção). `/health`,
+  `/swagger` e `/images` (ícone da topbar do Swagger) nunca exigem. Sem popup
+  nativo do navegador — 401 sem `WWW-Authenticate`, tela de login própria no
+  frontend.
 
 ---
+
+## Docker
+
+A imagem (`Dockerfile`, base `aspnet:10.0-alpine`) roda o processo `dotnet`
+como usuário **não-root** (`$APP_UID`, padrão das imagens .NET 8+) — mas os
+volumes `dados/`/`certificado/` são **bind mounts** do host, e o Docker cria
+o ponto de montagem como `root:root` por padrão quando o container sobe, o
+que bloqueava qualquer escrita nessas pastas pelo usuário não-root (ex.:
+`POST /api/dados/restaurar` falhava com `UnauthorizedAccessException` —
+leitura funcionava, só escrita não). Corrigido com um `entrypoint.sh`: o
+container agora inicia como `root`, `chown`s `dados/`/`certificado/` para
+`$APP_UID`, e só então troca de usuário via `su-exec` antes de rodar o
+`dotnet TogglReport.Api.dll` — o processo da aplicação continua não-root,
+só o passo de ajuste de permissão do volume roda como root, uma vez, no
+início do container.
 
 ## Estrutura de arquivos
 
@@ -296,7 +324,7 @@ toggl-report-back/
 
 ## Segurança
 
-`TogglRelatorioParametros.ini` e `TogglRelatorioData.ini` (gerados por **cada** executável em sua própria pasta `dados/`) guardam API Tokens em **texto puro** (o segundo também o retorno cru das consultas). Não versione esses arquivos (já estão no `.gitignore`, em qualquer profundidade de pasta) e trate-os como segredo.
+`TogglUsuarios.ini` e `TogglRelatorioData.ini` (gerados por **cada** executável em sua própria pasta `dados/`) guardam API Tokens **criptografados** (AES; chave via `TOGGL_CHAVE_CRIPTOGRAFIA`, com um padrão embutido se não configurada — proteção básica, ver `CLAUDE.md` §2.4) — o segundo também o retorno cru das consultas, esse não criptografado. `TogglRelatorioParametros.ini` (agrupamento/tags/período) não tem dado sensível. Não versione nenhum desses arquivos (já estão no `.gitignore`, em qualquer profundidade de pasta) e trate os que têm token como segredo mesmo assim.
 
 ## Limitações conhecidas
 

@@ -20,5 +20,6 @@ docker-compose.yml
 .env
 TogglRelatorioParametros.ini
 TogglRelatorioData.ini
+TogglUsuarios.ini
 TogglGantParametros.ini
 TogglGantData.ini

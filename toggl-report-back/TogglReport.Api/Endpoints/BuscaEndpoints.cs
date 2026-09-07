@@ -6,14 +6,14 @@ namespace RelatorioToggl.Api.Endpoints;
 
 public static class BuscaEndpoints
 {
-    public static void MapBuscaEndpoints(this WebApplication app, string caminhoConfiguracao, string caminhoCache)
+    public static void MapBuscaEndpoints(this WebApplication app, string caminhoConfiguracao, string caminhoUsuarios, string caminhoCache)
     {
         app.MapGet("/api/busca", (string termo) =>
         {
             if (string.IsNullOrWhiteSpace(termo))
                 return Results.BadRequest("Informe um termo de busca.");
 
-            ConfiguracaoApp? configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao);
+            ConfiguracaoApp? configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao, caminhoUsuarios);
             if (configuracao is null || configuracao.Usuarios.Count == 0)
                 return Results.BadRequest("Nenhum usuário cadastrado.");
 

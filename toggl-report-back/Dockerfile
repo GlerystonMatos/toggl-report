@@ -15,15 +15,18 @@ RUN dotnet publish -c Release -o out --no-restore
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine
 WORKDIR /app
 
+RUN apk add --no-cache su-exec
+
 COPY --chown=$APP_UID:$APP_UID --from=build /app/TogglReport.Api/out .
 RUN chown $APP_UID:$APP_UID /app
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 
-USER $APP_UID
-
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
     CMD wget -qO- http://localhost:8080/health || exit 1
 
-ENTRYPOINT [ "dotnet", "TogglReport.Api.dll" ]
+ENTRYPOINT [ "/entrypoint.sh" ]

@@ -69,6 +69,9 @@ você escolher em todos os comandos abaixo.
 
 ```bash
 gcloud projects create SEU_PROJETO_FINOPS_ID --name="SEU_PROJETO_FINOPS_ID"
+```
+
+```bash
 gcloud projects create SEU_PROJETO_APP_ID --name="SEU_PROJETO_APP_ID"
 ```
 Cria os dois projetos. O Terraform não faz isso (nenhum `google_project` foi
@@ -77,6 +80,9 @@ aqui.
 
 ```bash
 gcloud billing projects link SEU_PROJETO_FINOPS_ID --billing-account=SEU_BILLING_ACCOUNT_ID
+```
+
+```bash
 gcloud billing projects link SEU_PROJETO_APP_ID --billing-account=SEU_BILLING_ACCOUNT_ID
 ```
 Vincula a mesma conta de faturamento aos dois projetos — sem isso, nenhuma
@@ -212,7 +218,7 @@ disponíveis, considere isso na sua margem de segurança.
 
 Cloud Build tem dois mecanismos de conexão com GitHub, incompatíveis entre
 si: o **clássico** (1ª geração, GitHub App global) e o **atual** (2ª
-geração, por região, feito de `gcloud builds connections`). Este projeto usa
+geração, por região, feito via `gcloud builds connections`). Este projeto usa
 o atual — é o que o Console oferece por padrão hoje.
 
 ```bash
@@ -316,6 +322,9 @@ com a imagem de exemplo do Google.
 
 ```bash
 git checkout -b deploy
+```
+
+```bash
 git push -u origin deploy
 ```
 Cria a branch `deploy` e sobe pro GitHub — isso **dispara o trigger**
@@ -334,12 +343,17 @@ e roda o health check. Acompanhe em Console GCP → Cloud Build → Histórico.
 - [ ] `curl https://<url-do-backend>/health` retorna `Healthy`.
 - [ ] Abrir a URL do frontend no navegador — a aba "Usuários" carrega, sem
       erro de CORS/conexão no console do navegador (confirma que o
-      `VITE_API_URL` foi bake-ado com a URL certa do backend).
+      `VITE_API_URL` foi gravado com a URL certa do backend).
+- [ ] `gcloud artifacts repositories list` Esse comando mostra todos os 
+      repositórios Artifact Registry do projeto ativo, já trazendo a coluna
+      LOCATION e REPOSITORY (o nome). É o jeito mais direto de confirmar o
+      que o Terraform de fato criou, sem precisar abrir o Console.
+      (LOCATION-docker.pkg.dev/PROJECT-ID/REPOSITORY-ID)
 - [ ] `gcloud artifacts docker images list <repo>` mostra só as 2 imagens
       mais recentes de cada serviço, um dia após o segundo deploy (a
       cleanup policy roda em background, não é instantânea).
 - [ ] Depois de alguns minutos sem tráfego, `gcloud run services describe
-      <serviço> --format="value(status.traffic)"` / painel do Console
+      <serviço> --region=SUA_REGIAO --format="value(status.observedGeneration)"` / painel do Console
       confirma 0 instâncias ativas (scale-to-zero de verdade).
 - [ ] Confirmar no Console de Billing que o Budget criado no passo 3 aparece
       e está com o tópico Pub/Sub certo associado.
@@ -350,6 +364,9 @@ e roda o health check. Acompanhe em Console GCP → Cloud Build → Histórico.
 
 ```bash
 gcloud run revisions list --service=toggl-report-back --region=us-central1
+```
+
+```bash
 gcloud run revisions list --service=toggl-report-front --region=us-central1
 ```
 Lista as revisões existentes de cada serviço (cada deploy bem-sucedido cria
@@ -358,7 +375,9 @@ uma nova, mesmo sem tráfego apontado pra ela).
 ```bash
 gcloud run services update-traffic toggl-report-back --region=us-central1 \
   --to-revisions=REVISION_ANTIGA=100
+```
 
+```bash
 gcloud run services update-traffic toggl-report-front --region=us-central1 \
   --to-revisions=REVISION_ANTIGA=100
 ```
@@ -402,7 +421,7 @@ apagados** (o projeto entra num estado suspenso, não é destruído).
 ## Referência operacional — comandos do dia a dia
 
 Tudo abaixo é **de sua responsabilidade rodar** — nenhum tem efeito colateral
-destrutivo por padrão, exceto onde marcado. Region assumida `us-central1`;
+destrutivo por padrão, exceto onde marcado. Região assumida: `us-central1`;
 troque se você definiu outra.
 
 ### Cloud Run — frontend e backend
@@ -436,6 +455,18 @@ gcloud run services update toggl-report-back --region=us-central1 --project=SEU_
 ```
 Muda uma variável de ambiente **sem** rebuildar/redeployar a imagem — cria
 uma nova revisão só com a env var alterada.
+
+**Ligar a autenticação HTTP Basic do backend** (opcional, código-only —
+nada aqui mexe em Terraform, ver `CLAUDE.md` §4.8):
+```bash
+gcloud run services update toggl-report-back --region=us-central1 --project=SEU_PROJETO_APP_ID \
+  --set-env-vars=AUTH__USUARIO=SEU_USUARIO,AUTH__SENHA=SUA_SENHA,TOGGL_CHAVE_CRIPTOGRAFIA=SUA_CHAVE
+```
+`AUTH__USUARIO`/`AUTH__SENHA` ligam o gate de autenticação (sem os dois, a
+API fica como está hoje); `TOGGL_CHAVE_CRIPTOGRAFIA` é opcional — sem ela,
+os tokens do Toggl nos `.ini` ainda são criptografados, só que com uma chave
+padrão embutida no código-fonte (proteção mínima). Escolha os três valores
+você mesmo, não são gerados por nenhum comando aqui.
 
 ```bash
 gcloud run services update toggl-report-back --region=us-central1 --project=SEU_PROJETO_APP_ID \
@@ -473,6 +504,9 @@ de alguma API), sem commit vazio.
 
 ```bash
 gcloud builds triggers list --project=SEU_PROJETO_APP_ID
+```
+
+```bash
 gcloud builds triggers describe deploy-producao --project=SEU_PROJETO_APP_ID
 ```
 Lista/detalha o trigger — confirma branch, substitutions, service account
@@ -521,6 +555,9 @@ primeiro comando a rodar se suspeitar que o killswitch disparou.
 
 ```bash
 gcloud billing budgets list --billing-account=SEU_BILLING_ACCOUNT_ID
+```
+
+```bash
 gcloud billing budgets describe BUDGET_ID --billing-account=SEU_BILLING_ACCOUNT_ID
 ```
 Lista/detalha o(s) budget(s) — confirma valor, threshold e tópico Pub/Sub
@@ -557,6 +594,9 @@ se completou (`Billing desabilitado em ...`).
 
 ```bash
 gcloud iam service-accounts list --project=SEU_PROJETO_APP_ID
+```
+
+```bash
 gcloud projects get-iam-policy SEU_PROJETO_APP_ID
 ```
 Lista as SAs do projeto e a política de IAM completa — útil para auditar se

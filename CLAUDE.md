@@ -6,8 +6,8 @@ qualquer sessão futura sem precisar reexplicar as decisões já tomadas.
 O repositório reúne **dois projetos independentes**:
 
 - **`toggl-report-back/`** — três projetos **C# / .NET 10** na mesma solução
-  (`TogglReport.slnx`): o console original (`TogglReport.Console`), uma Web API sem
-  autenticação que expõe as mesmas funcionalidades (`TogglReport.Api`), e uma
+  (`TogglReport.slnx`): o console original (`TogglReport.Console`), uma Web API com
+  autenticação HTTP Basic opcional que expõe as mesmas funcionalidades (`TogglReport.Api`), e uma
   biblioteca comum aos dois (`TogglReport.Nucleo`).
 - **`toggl-report-front/`** — frontend **React 19 + TypeScript + MUI** (Vite) que
   consome a Web API, replicando o fluxo do console numa interface gráfica.
@@ -27,10 +27,11 @@ frontend web), compartilhando a mesma lógica de negócio e o mesmo formato de
 persistência em INI.
 
 - **Console** (`toggl-report-back/TogglReport.Console`, assembly `TogglReport`): totalmente interativo, um
-  assistente guia a configuração e persiste tudo em `dados/TogglRelatorioParametros.ini`, ao
-  lado do executável.
+  assistente guia a configuração e persiste em `dados/TogglRelatorioParametros.ini`
+  (parâmetros do relatório) e `dados/TogglUsuarios.ini` (usuários/tokens,
+  compartilhado com o Gantt — ver §2.4), ao lado do executável.
 - **Web API** (`toggl-report-back/TogglReport.Api`): mesmas funcionalidades por
-  HTTP, sem autenticação, documentada via Swagger, com sua **própria** pasta
+  HTTP, com autenticação HTTP Basic opcional (§4.8), documentada via Swagger, com sua **própria** pasta
   `dados/`.
 - **Núcleo compartilhado** (`toggl-report-back/TogglReport.Nucleo`): modelos,
   acesso a INI, cliente HTTP do Toggl e as regras de agrupamento/busca/decisão de
@@ -53,8 +54,8 @@ persistência em INI.
   Gantt configurados com períodos diferentes ao mesmo tempo, e uma consulta
   não invalida a outra. Ver §4.6/§5.5.
 - **Usuário ganhou três campos exclusivos da versão web** (`Sigla`, `Cor`,
-  `Selecionado`) — persistidos no mesmo `TogglRelatorioParametros.ini`, lidos/gravados pelo
-  mesmo `CarregadorConfiguracaoIni` que o console usa; o console não tem UI
+  `Selecionado`) — persistidos no mesmo `TogglUsuarios.ini`, lidos/gravados pelo
+  `CarregadorUsuariosIni` (ver §2.4); o console não tem UI
   para editá-los, mas preserva os valores ao resalvar a configuração (ver
   §2.4). `Selecionado` decide quais usuários entram na **próxima consulta**
   (relatório ou Gantt) — os demais nem chegam a ser considerados por
@@ -118,10 +119,20 @@ dotnet run --project TogglReport.Console
 
 1. `Console.OutputEncoding = UTF8`; `Tela.Inicializar` (dimensiona `Tela.Largura`
    pelo terminal); `Tela.BemVindo` (banner) + `Tela.Carregando` (animação ~1 s).
-2. **`GerarRelatoriosEnquantoUsuarioQuiser`** — laço `while (executarNovamente)`:
+2. **`OfereceRestaurarBackupSeNecessario`** (2026-09-06): se
+   `CarregadorConfiguracaoIni.Carregar(...)` devolve `null` (nem
+   `TogglRelatorioParametros.ini` nem `TogglUsuarios.ini` têm conteúdo —
+   checagem única, antes do laço principal), pergunta se quer restaurar de
+   um `.zip` da pasta `dados/` (caminho informado via `Prompt.Perguntar`,
+   `ZipFile.ExtractToDirectory` na pasta); recusando ou não achando o
+   arquivo, segue para o fluxo normal (cadastro do zero, já existente —
+   opção "b" do pedido original já era o comportamento padrão).
+3. **`GerarRelatoriosEnquantoUsuarioQuiser`** — laço `while (executarNovamente)`:
    1. **`ColetarConfiguracaoConfirmadaAsync`** — laço até o usuário confirmar:
-      - `CarregadorConfiguracaoIni.Carregar(TogglRelatorioParametros.ini)` (uma vez por
-        ciclo) e um `ConfiguracaoApp` novo.
+      - `CarregadorConfiguracaoIni.Carregar(TogglRelatorioParametros.ini,
+        TogglUsuarios.ini)` (uma vez por ciclo) e um `ConfiguracaoApp` novo —
+        o loader combina o `[Geral]` de um arquivo com os `[Usuario:*]` do
+        outro num único objeto em memória (ver §2.4).
       - `AssistenteConfiguracao.ColetarAsync(atual, salvos)` — campo a campo:
         **agrupamento** (`EscolherOpcao` + confirmar, ou reaproveitar o salvo),
         **tags detalhadas** (só se agrupamento é `tag`/`ambos`; lista livre
@@ -131,7 +142,8 @@ dotnet run --project TogglReport.Console
       - Cabeçalho com o resumo, seguido da **lista de usuários selecionados**
         (um por linha, `Tela.ListarUsuariosSelecionados`) → `Confirmar a
         consulta com os parâmetros acima?`. Se recusado, recomeça. Se aceito,
-        grava o `TogglRelatorioParametros.ini` (com `try/catch`).
+        grava `TogglRelatorioParametros.ini` e `TogglUsuarios.ini` (com
+        `try/catch`).
    2. **`ObterRegistrosAsync`** — decide entre cache e API (delega para
       `ServicoConsulta`, §3):
       - Carrega `TogglRelatorioData.ini` (`ServicoConsulta.CarregarCacheSeExistente`,
@@ -235,18 +247,49 @@ cache/rate-limit) vive em `toggl-report-back/TogglReport.Nucleo/` — ver §3.
   somar os tempos — não só na exibição
   (`ServicoAgrupamento.NormalizarDescricaoTel`/`ChaveDescricao`). Só reformata
   quando há dígitos logo após "TEL"; não mexe em "TELA", "TELEFONE" etc.
+- **Usuários vivem num arquivo próprio, `TogglUsuarios.ini`, separado dos
+  parâmetros do relatório desde 2026-09-07** (`CarregadorUsuariosIni.cs`,
+  `TogglUsuarios.ini` — pedido do usuário: só as seções `[Usuario:<chave>]`,
+  nada de `[Geral]`). `CarregadorConfiguracaoIni.Carregar(caminho,
+  caminhoUsuarios)`/`.Salvar(caminho, caminhoUsuarios, configuracao)`
+  delegam a leitura/escrita de `configuracao.Usuarios` para
+  `CarregadorUsuariosIni` — o modelo em memória (`ConfiguracaoApp.Usuarios`)
+  não mudou, só onde ele é persistido; nenhum consumidor de `ConfiguracaoApp`
+  (`ServicoConsulta`, `ServicoGant`, `Tela`, `AssistenteConfiguracao`,
+  `MenuTokenUsuario`) precisou mudar. **Migração automática, sem intervenção
+  manual**: se `TogglUsuarios.ini` ainda não existe mas o arquivo de
+  parâmetros informado tem seções `[Usuario:*]` (formato anterior a
+  2026-09-07), `CarregadorUsuariosIni.Carregar` extrai e grava essas seções
+  no novo arquivo na primeira leitura — mesmo espírito da migração
+  silenciosa de nome de arquivo do item 18, mas aqui é uma migração de
+  **conteúdo** entre dois arquivos, não uma renomeação. O arquivo de
+  parâmetros perde as seções `[Usuario:*]` (que ficam só como legado, até
+  a migração rodar) na primeira vez que for salvo depois disso, já que
+  `Salvar` não as escreve mais ali.
 - **`ConfiguracaoUsuario` tem três campos exclusivos da versão web**: `Sigla`
   (string curta, usada como rótulo nas células do Gantt), `Cor` (hex, cor de
   fundo dessas células) e `Selecionado` (`bool`, default `true` — decide se o
   usuário entra na próxima consulta). Persistidos como `Sigla=`/`Cor=`/
-  `Selecionado=` na seção `[Usuario:<chave>]`, lidos com `AnalisadorIni.
-  ObterOuPadrao` (`Selecionado` via `bool.TryParse`, default `true` se ausente
-  ou inválido — usuários criados antes desse campo existir continuam
-  selecionados). **Importante**: `CarregadorConfiguracaoIni.Salvar` grava os
-  três campos sempre, mesmo quando quem chama é o console (que não tem UI para
-  eles) — é o que evita perdê-los quando o console resalva a configuração.
-  `ServicoUsuarios.SiglaEmUso` (mesmo padrão de `NomeEmUso`/`TokenEmUso`, mas
-  ignorando siglas vazias) valida unicidade na Web API.
+  `Selecionado=` na seção `[Usuario:<chave>]` de `TogglUsuarios.ini`, lidos
+  com `AnalisadorIni.ObterOuPadrao` (`Selecionado` via `bool.TryParse`,
+  default `true` se ausente ou inválido — usuários criados antes desse campo
+  existir continuam selecionados). **Importante**: `CarregadorUsuariosIni.
+  Salvar` grava os três campos sempre, mesmo quando quem chama é o console
+  (que não tem UI para eles) — é o que evita perdê-los quando o console
+  resalva a configuração. `ServicoUsuarios.SiglaEmUso` (mesmo padrão de
+  `NomeEmUso`/`TokenEmUso`, mas ignorando siglas vazias) valida unicidade na
+  Web API.
+- **`TokenApi` é criptografado em repouso desde 2026-09-06**
+  (`CriptografiaToken.Criptografar`/`Descriptografar`, AES, chave derivada de
+  `TOGGL_CHAVE_CRIPTOGRAFIA` ou uma chave padrão embutida se a env var não
+  estiver configurada — proteção básica, não resiste a quem lê o código-fonte
+  público). Aplicado em `CarregadorUsuariosIni` (`TogglUsuarios.ini`, desde
+  2026-09-07 — antes era `CarregadorConfiguracaoIni`) e `CarregadorCacheIni`
+  (`TogglRelatorioData.ini`/`TogglGantData.ini`, e vale pro console também —
+  é o mesmo núcleo). Valor gravado com prefixo `enc:`; ao ler, se não tiver
+  esse prefixo, trata como texto puro (arquivo de antes desta mudança) —
+  migra sozinho pra criptografado no próximo `Salvar`, mesmo padrão de
+  migração silenciosa já usado pra renomear arquivo (§7, item 18).
 - **Cache (`CacheConsulta`/`UsuarioCacheado`) guarda dado cru, indexado por
   `Chave` de usuário** (não por `NomeExibicao`, que pode ser editado):
   `DataInicio`/`DataFim` da consulta em `[Geral]`, e uma seção
@@ -270,10 +313,20 @@ DataInicioAnterior=2026-08-01
 DataFimAnterior=2026-08-31
 AgrupamentoPadrao=ambos
 TagsDetalhadas=Cliente X,Urgente
+```
 
+### `TogglUsuarios.ini` (exemplo) — em `AppContext.BaseDirectory/dados`
+
+Compartilhado pelo relatório e pelo Gantt (§4.6) — não tem `[Geral]`, só
+seções `[Usuario:<chave>]`:
+
+```ini
 [Usuario:joao]
 NomeExibicao=Joao Silva
-TokenApi=abcdef1234567890
+TokenApi=enc:abcdef1234567890...
+Sigla=JS
+Cor=#5B82F6
+Selecionado=True
 ```
 
 ### `TogglRelatorioData.ini` (exemplo) — em `AppContext.BaseDirectory/dados`
@@ -313,7 +366,7 @@ pasta `dados/`, mesmo formato, sem compartilhar arquivo físico.
   pergunta; API devolve 400).
 - **EOF (stdin fechado, só console)**: `Prompt.LerEntrada` chama
   `Environment.Exit(0)` — o app encerra em vez de entrar em laço.
-- **Falha ao carregar/salvar `TogglRelatorioData.ini`/`TogglRelatorioParametros.ini`**:
+- **Falha ao carregar/salvar `TogglRelatorioData.ini`/`TogglRelatorioParametros.ini`/`TogglUsuarios.ini`**:
   `try/catch (IOException or UnauthorizedAccessException)` — não é fatal; sem
   cache utilizável, o app cai para a consulta normal.
 - **Limite de 30 requisições/hora atingido para um usuário**: usa o
@@ -329,9 +382,10 @@ pasta `dados/`, mesmo formato, sem compartilhar arquivo físico.
   longos podem dar **400** (limite de histórico da conta).
 - **Não resolve nome de projeto/cliente** — só descrição e tag. `IdProjeto`
   existe no DTO mas não é usado.
-- **`TogglRelatorioParametros.ini` e `TogglRelatorioData.ini` guardam os tokens em texto puro** —
-  tratados como segredo, ambos no `.gitignore` (ver §8), dentro de `dados/` ao
-  lado de cada executável.
+- **`TogglRelatorioParametros.ini`, `TogglRelatorioData.ini` e `TogglUsuarios.ini`
+  guardam dado sensível** — o `TokenApi` é criptografado em repouso (§2.4),
+  mas os três são tratados como segredo mesmo assim (todos no `.gitignore`,
+  ver §8), dentro de `dados/` ao lado de cada executável.
 - **`Tela.Inicializar()` mede a largura uma única vez, na abertura**: se o
   usuário redimensionar o terminal durante a execução, a moldura não se
   readapta.
@@ -352,14 +406,16 @@ tudo que é lógica de negócio ou acesso a INI, independente de qual interface
 ```
 toggl-report-back/TogglReport.Nucleo/
  ├─ Configuracao/
- │   ├─ ConfiguracaoApp.cs         # modelo do TogglRelatorioParametros.ini
- │   ├─ ConfiguracaoUsuario.cs     # Chave / NomeExibicao / TokenApi
- │   ├─ CarregadorConfiguracaoIni.cs  # Carregar / Salvar do dados/TogglRelatorioParametros.ini
+ │   ├─ ConfiguracaoApp.cs         # modelo do TogglRelatorioParametros.ini (Geral) + Usuarios em memória
+ │   ├─ ConfiguracaoUsuario.cs     # Chave / NomeExibicao / TokenApi / Sigla / Cor / Selecionado
+ │   ├─ CarregadorConfiguracaoIni.cs  # Carregar / Salvar do [Geral] de TogglRelatorioParametros.ini; delega Usuarios a CarregadorUsuariosIni
+ │   ├─ CarregadorUsuariosIni.cs   # Carregar / Salvar do dados/TogglUsuarios.ini (seções [Usuario:*], compartilhado com o Gantt); migra sozinho de um TogglRelatorioParametros.ini antigo com usuários embutidos
+ │   ├─ CriptografiaToken.cs       # Criptografar/Descriptografar (AES) do TokenApi, prefixo enc:
  │   ├─ CacheConsulta.cs           # modelo do TogglRelatorioData.ini: período + List<UsuarioCacheado>
  │   ├─ UsuarioCacheado.cs         # Chave / NomeExibicao / TokenApi / Registros (dado cru)
  │   ├─ CarregadorCacheIni.cs      # Carregar / Salvar do dados/TogglRelatorioData.ini
  │   ├─ AnalisadorIni.cs           # parser de INI compartilhado (Analisar/ObterOuPadrao/ObterOuNulo)
- │   ├─ CaminhosDados.cs           # monta dados/TogglRelatorioParametros.ini, TogglRelatorioData.ini, TogglGantParametros.ini e TogglGantData.ini a partir de um diretório base
+ │   ├─ CaminhosDados.cs           # monta dados/TogglRelatorioParametros.ini, TogglUsuarios.ini, TogglRelatorioData.ini, TogglGantParametros.ini e TogglGantData.ini a partir de um diretório base
  │   ├─ ConfiguracaoGant.cs        # modelo do TogglGantParametros.ini: DataInicio/DataFim/TagsSelecionadas/Agrupamento
  │   ├─ CarregadorConfiguracaoGantIni.cs  # Carregar / Salvar do dados/TogglGantParametros.ini
  │   └─ ServicoUsuarios.cs         # GerarChaveUnica / NomeEmUso / TokenEmUso / SiglaEmUso / MascararToken
@@ -406,8 +462,9 @@ aqui.
 ### 4.1 Visão geral
 
 ASP.NET Core, **Minimal APIs** (não Controllers — projeto pequeno e focado),
-`Microsoft.NET.Sdk.Web`, referencia `TogglReport.Nucleo`. **Sem
-autenticação/autorização** — uso exclusivamente local.
+`Microsoft.NET.Sdk.Web`, referencia `TogglReport.Nucleo`. **Autenticação HTTP
+Basic opcional** (§4.8) — desligada por padrão (uso local sem fricção),
+ligada configurando `AUTH:USUARIO`/`AUTH:SENHA` (produção).
 
 ```bash
 dotnet run --project toggl-report-back/TogglReport.Api
@@ -444,6 +501,7 @@ com um método `Map*Endpoints(this WebApplication app, ...)` chamado do
 | `GET` | `/api/relatorio?dataInicio=&dataFim=` | `RelatorioEndpoints` | 409 se não há cache **exatamente** para esse período; senão `{ dataInicio, dataFim, agrupamento, usuarios: [...] }` |
 | `GET` | `/api/busca?termo=` | `BuscaEndpoints` | 409 se não há cache; senão o `ResultadoBuscaDescricao` do núcleo, serializado direto |
 | `GET` | `/api/dados/download` | `DadosEndpoints` | Compacta a pasta `dados/` inteira (todos os arquivos presentes no momento da requisição, sem lista fixa) em `dados.zip` via `System.IO.Compression.ZipArchive` (nativo do .NET, sem pacote NuGet) e devolve o zip; 404 se a pasta não existir ou estiver vazia |
+| `POST` | `/api/dados/restaurar` | `DadosEndpoints` | Recebe um `.zip` (`multipart/form-data`, campo `arquivo`) e extrai (`ZipArchive.ExtractToDirectory`, sobrescreve) na pasta `dados/` — cria a pasta se não existir. Não valida se a pasta já tinha dados; quem decide quando oferecer é quem chama (Fase 2 de 2026-09-06: pensado para "config ausente" no primeiro uso). **400 se alguma entrada do zip estiver dentro de uma pasta** (`entrada.FullName != entrada.Name`) — o zip precisa ter os arquivos direto na raiz, não uma pasta `dados/` (ou qualquer outra) por dentro; entradas de diretório puro (`Name` vazio) são ignoradas, não rejeitadas (2026-09-07). **500 com mensagem limpa** em qualquer `IOException`/`UnauthorizedAccessException` real (item 25 do histórico) |
 | `GET` | `/api/gant/parametros` | `GantEndpoints` | `{ dataInicio, dataFim, tagsSelecionadas, agrupamento }` do Gantt (independente do relatório) |
 | `PUT` | `/api/gant/parametros` | `GantEndpoints` | Atualiza os 4 campos acima |
 | `POST` | `/api/gant/consultas` | `GantEndpoints` | Igual a `POST /api/consultas`, mas grava em `TogglGantData.ini` — reaproveita `ServicoConsulta` inteiro, só troca o caminho do cache |
@@ -521,7 +579,9 @@ sobre o texto cru da descrição).
   agrupamento fora de `descricao`/`tag`/`ambos`, datas não parseáveis,
   `fim < inicio`, nome de usuário vazio, nenhum usuário cadastrado ao
   consultar/relatar/buscar, token que não valida (sem `ignorarValidacao`),
-  termo de busca vazio.
+  termo de busca vazio, `.zip` de `POST /api/dados/restaurar` com arquivos
+  dentro de uma pasta em vez de na raiz (§4.2, item 23) ou que não é um
+  `.zip` válido.
 - **404 Not Found**: usuário (`chave`) não encontrado em `PUT`/`DELETE
   /api/usuarios/{chave}`; arquivo `.ini` inexistente nos endpoints de
   download.
@@ -530,14 +590,18 @@ sobre o texto cru da descrição).
 - **500** (`Results.Problem`): falha de I/O ao gravar o `.ini`
   (`IOException`/`UnauthorizedAccessException`) — mesmo `try/catch` não-fatal
   do console, mas aqui vira erro de resposta (não há como "avisar e seguir"
-  numa requisição síncrona que precisava do resultado salvo).
+  numa requisição síncrona que precisava do resultado salvo); mesmo
+  tratamento em `POST /api/dados/restaurar` desde o item 25 (antes subia
+  como exceção não tratada).
 
 ### 4.5 Limitações conhecidas desta camada
 
 - CORS `AllowAny` — adequado só para uso local; não usar essa configuração se
   a API for exposta além de `localhost`.
-- Sem autenticação — qualquer processo na máquina pode chamar a API e ler/
-  alterar `dados/TogglRelatorioParametros.ini` (inclusive tokens) e `dados/TogglRelatorioData.ini`.
+- Sem autenticação **se `AUTH:USUARIO`/`AUTH:SENHA` não estiverem
+  configurados** (default) — qualquer processo com acesso à rede pode chamar
+  a API. Ver §4.8 para ligar a autenticação; os tokens em `dados/*.ini` já
+  ficam criptografados em repouso independente disso (ver §2.4).
 - Enum documentado no Swagger pode aparecer como inteiro no schema (a
   anotação `[SwaggerDoc]` não propaga automaticamente o
   `JsonStringEnumConverter` para a geração de schema do Swashbuckle) — a
@@ -550,9 +614,10 @@ sobre o texto cru da descrição).
 Segunda visualização dos mesmos dados do Toggl, com parâmetros e cache
 **totalmente independentes** do relatório (ver §4.2 para as rotas). O
 único ponto compartilhado com o relatório é a lista de usuários
-(`TogglRelatorioParametros.ini`) e `ServicoConsulta` (reaproveitado sem alteração — só o
-caminho do arquivo de cache muda, de `TogglRelatorioData.ini` para
-`TogglGantData.ini`).
+(`TogglUsuarios.ini`, desde 2026-09-07 — antes vivia dentro do
+`TogglRelatorioParametros.ini`) e `ServicoConsulta` (reaproveitado sem
+alteração — só o caminho do arquivo de cache muda, de
+`TogglRelatorioData.ini` para `TogglGantData.ini`).
 
 - **`ConfiguracaoGant`** (`dados/TogglGantParametros.ini`, mesmo formato de
   seção `[Geral]` do `TogglRelatorioParametros.ini`): `DataInicio`, `DataFim`,
@@ -598,6 +663,10 @@ caminho do arquivo de cache muda, de `TogglRelatorioData.ini` para
 
 ### 4.7 Swagger customizado
 
+Título do documento OpenAPI (`SwaggerDoc`) é **"Toggl Report API"**
+(`opcoes.Title`, `Program.cs`) — alterado de `"TogglReport"` em 2026-09-06,
+sem tocar em mais nenhuma configuração do Swagger.
+
 `Program.cs` injeta CSS próprio no Swagger via `SwaggerUIOptions.HeadContent`
 (um `<style>` cru, sem precisar de arquivo `.css` separado) e serve uma
 imagem (`wwwroot/images/toggl-report.png`, o mesmo ícone do frontend) via
@@ -605,6 +674,20 @@ imagem (`wwwroot/images/toggl-report.png`, o mesmo ícone do frontend) via
 para esse propósito. O CSS troca o logo padrão do Swagger pelo ícone do
 projeto na topbar e ajusta espaçamentos (`.info`, `.scheme-container`,
 `.btn.authorize`).
+
+**Botão "Authorize" (2026-09-06)**: registrado só quando `AUTH:USUARIO`/
+`AUTH:SENHA` estão configurados (mesma condição do middleware, checada de
+novo em `AddSwaggerGen` antes do `Build()`) — `AddSecurityDefinition("basic",
+...)` (`SecuritySchemeType.Http`, `Scheme = "basic"`) e
+`AddSecurityRequirement(...)`. A API `Microsoft.OpenApi` 2.x não tem mais a
+classe solta `OpenApiReference`/pattern de `Reference` em cima de
+`OpenApiSecurityScheme` — o jeito novo é `OpenApiSecuritySchemeReference(id,
+documento)`, e `OpenApiSecurityRequirement` é literalmente um
+`Dictionary<OpenApiSecuritySchemeReference, List<string>>` (confirmado por
+reflexão sobre o pacote instalado, não documentação — mesmo cuidado que essa
+versão do `Microsoft.OpenApi` já exigiu antes, ver §4.3). Sem autenticação
+configurada, nada disso é registrado — Swagger sem botão "Authorize", como
+sempre foi.
 
 **Tentativa de forçar tema claro, revertida (2026-09-06)**: o Swagger UI
 empacotado no Swashbuckle (10.2.3) não tem suporte nativo a tema claro/escuro
@@ -621,6 +704,51 @@ aplicando o próprio esquema escuro por cima). Revertido — nenhum ajuste de
 causa raiz exata (qual navegador/mecanismo específico ignorou a declaração);
 se o pedido voltar, vale primeiro identificar o navegador/versão usado antes
 de tentar de novo.
+
+### 4.8 Autenticação HTTP Basic (opcional)
+
+Adicionada em 2026-09-06 para viabilizar o deploy público no Cloud Run
+(`toggl-report-infra/`) sem reabrir a API pra internet sem nenhuma barreira.
+
+- **`Api/Autenticacao/AutenticacaoBasicaMiddleware.cs`**: middleware
+  registrado logo após `UseCors`, antes de tudo o mais (Swagger e
+  `wwwroot/` inclusos). Lê `AUTH:USUARIO`/`AUTH:SENHA` da configuração (env
+  vars `AUTH__USUARIO`/`AUTH__SENHA`) uma vez no startup — **se qualquer um
+  dos dois estiver vazio/ausente, o middleware não registra o gate** (API
+  fica exatamente como antes, sem fricção no dev local). Quando configurado,
+  toda rota exige `Authorization: Basic base64(usuario:senha)` **exceto**:
+  `/health` (sempre livre — é o que o `HEALTHCHECK` do Dockerfile e o
+  healthcheck do Cloud Run/Cloud Build chamam); `/swagger` (o Swagger em si
+  deve ficar navegável sem credencial); e `/images` (só serve
+  `wwwroot/images/toggl-report.png`, o ícone usado na própria topbar do
+  Swagger — sem função fora dele, então some junto).
+- **Sem `WWW-Authenticate` na resposta 401** — de propósito: isso é o que
+  dispara o popup nativo do navegador; omitindo o header, o 401 vira só uma
+  resposta HTTP comum, que o frontend trata com uma tela de login própria
+  em vez do prompt do navegador.
+- **Frontend** (`src/features/auth/`): `useAuth.ts` guarda a credencial em
+  `sessionStorage` (não `localStorage` — soma até fechar a aba, decisão do
+  usuário) via `src/api/http.ts` (`definirCredencial`/`obterCredencial`/
+  `limparCredencial`), que já anexa `Authorization: Basic ...` em toda
+  chamada quando existe credencial salva. Ao montar, sem credencial salva,
+  tenta uma chamada muda (`GET /api/usuarios`) — se a API aceitar (gate
+  desligado), pula a tela de login automaticamente; se vier 401, mostra
+  `LoginScreen.tsx`. Qualquer 401 subsequente (ex.: credencial revogada em
+  produção) limpa a credencial e devolve à tela de login (evento
+  `auth:necessaria`, disparado em `http.ts`). Botão "Sair" na `AppBar`
+  (`App.tsx`) limpa a credencial manualmente.
+- **`LoginScreen.tsx` reaproveita o `AppBar` da aplicação (2026-09-06)**: em
+  vez de um cabeçalho próprio, renderiza o mesmo `<AppBar>`/`<Toolbar>` com a
+  logo e o título "TOGGL REPORT" (mesma fonte Montserrat Semi-Bold+Light,
+  ver §5.5) que `App.tsx` usa — cor de fundo idêntica (vem do
+  `MuiAppBar.styleOverrides` global do tema, não de um valor hardcoded na
+  tela de login), formulário de usuário/senha centralizado abaixo. Markup
+  copiado do `AppBar` de `App.tsx`, não um componente novo — pedido explícito
+  do usuário para não inventar estilo.
+- **Nada disso é Terraform/infra** — `AUTH:USUARIO`/`AUTH:SENHA` são
+  configurados como variável de ambiente do serviço Cloud Run
+  (`gcloud run services update --set-env-vars=...`), o mesmo mecanismo já
+  usado para `VITE_API_URL`/senha do Kestrel — nenhum `.tf` precisa mudar.
 
 ---
 
@@ -670,7 +798,7 @@ toggl-report-front/src/
  │   ├─ relatorio/          # RelatorioView.tsx, RelatorioUsuarioCard.tsx, curadoria.ts + useRelatorio.ts
  │   ├─ busca/              # BuscaPanel.tsx + useBusca.ts (busca do relatório — layout de lista)
  │   ├─ gant/               # ParametrosGantForm.tsx, GantView.tsx (tabela própria, com busca embutida) + useParametrosGant.ts/useConsultaGant.ts/useGant.ts
- │   └─ dados/              # RodapeDownloads.tsx (download único da pasta dados/ compactada + versão do app)
+ │   └─ dados/              # RodapeDownloads.tsx (download único da pasta dados/ compactada + versão do app), ImportarDadosDialog.tsx (upload do .zip quando não há usuário cadastrado)
  ├─ components/
  │   ├─ BotaoComCarregamento.tsx
  │   └─ DialogoConfirmacao.tsx  # Dialog genérico (confirmação com Cancelar, ou só informativo com OK) — reaproveitado pela exclusão de usuário
@@ -717,6 +845,30 @@ toggl-report-front/src/
   snake_case (comentário no próprio arquivo — uma das poucas exceções à regra
   de "nomes em vez de comentário", porque aqui o "porquê" não é dedutível só
   pelo nome dos campos).
+- **`ImportarDadosDialog` (2026-09-06) fecha a ponta que faltava no frontend
+  para `POST /api/dados/restaurar`** — o endpoint já existia (§4.2), só não
+  tinha UI. `App.tsx` dispara o diálogo **uma única vez por sessão**, num
+  `useEffect` gated por `verificacaoInicialFeita`, quando a primeira
+  checagem de `GET /api/usuarios` (já feita para o aviso "nenhum usuário
+  cadastrado") vem vazia — não reabre depois se o usuário excluir todos os
+  usuários manualmente, mesmo espírito do
+  `OfereceRestaurarBackupSeNecessario` do console (§2.2), que também só
+  verifica uma vez, antes do laço principal. Duas opções: escolher um `.zip`
+  e importar, ou "Seguir sem importar" (fecha e segue pelo cadastro manual
+  já existente). Upload via `http.postArquivo` (novo método em
+  `src/api/http.ts`, `dadosApi.ts` → `restaurarDados`) — `FormData` +
+  `fetch` próprio, porque o resto do wrapper (`http.get/post/put/delete`)
+  sempre serializa o corpo como JSON; mesma lógica de credencial/401 dos
+  demais métodos.
+- **`RodapeDownloads` baixa via `fetch` autenticado + blob, não `<a href>` direto (2026-09-07)**:
+  um link simples navegando para `/api/dados/download` nunca carrega a
+  credencial — o app deliberadamente não usa cookie/sessão nem deixa o
+  navegador cachear Basic Auth (não manda `WWW-Authenticate`, §4.8), então só
+  o `fetch` da própria SPA sabe anexar `Authorization`. `http.getArquivo`
+  (novo em `src/api/http.ts`) baixa como `Blob`, lê o nome do arquivo do
+  `Content-Disposition`, e `dadosApi.baixarDados` cria um `<a>` temporário
+  com `URL.createObjectURL` para disparar o download do lado do cliente —
+  mesmo resultado de UX de um link normal, mas com a credencial correta.
 - **MUI 9.4.0** (mais novo que o esperado no momento em que o frontend foi
   criado): `Stack` não aceita mais `justifyContent`/`alignItems`/`flexWrap`/
   `gap` como props diretas, só via `sx` — ajustado em 8 arquivos. Não existe
@@ -740,7 +892,9 @@ toggl-report-front/src/
 - Depende da Web API estar rodando no endereço configurado (`VITE_API_URL`,
   padrão `http://localhost:5180`); sem ela, toda chamada falha com um aviso
   (snackbar), mas o app não trava.
-- Sem autenticação (a API não tem) — não é para uso além de `localhost`.
+- Sem tela de login se a API não exigir autenticação (default, uso local);
+  quando a API exige (`AUTH:USUARIO`/`AUTH:SENHA` configurados), mostra
+  `LoginScreen` — ver §4.8 e §5.3.
 - Não há testes automatizados (mesma limitação do resto do repositório).
 
 ### 5.5 Tema, tipografia e ícone
@@ -1128,6 +1282,179 @@ histórico mantido como estava escrito, sem reescrever caminhos.
     por `SEU_PROJETO_APP_ID`/`SEU_PROJETO_FINOPS_ID` em todo `toggl-report-infra/`
     e nos dois READMEs — nenhum identificador real de projeto GCP permanece
     versionado.
+20. **Título do Swagger, fallback de configuração ausente, autenticação HTTP
+    Basic opcional e criptografia de tokens** (2026-09-06, 5 fases — Fase 3
+    só investigou e propôs opções, aguardando aprovação antes da Fase 4):
+    - Título do `SwaggerDoc` → "Toggl Report API" (§4.7).
+    - `OfereceRestaurarBackupSeNecessario` no console (§2.2) e
+      `POST /api/dados/restaurar` na Api (§4.2) — oferece restaurar a pasta
+      `dados/` de um `.zip` quando a configuração não é encontrada, sem
+      criar nenhuma camada de configuração genérica nova.
+    - Investigação (Fase 3): API sem autenticação nenhuma, CORS `AllowAny`,
+      Cloud Run com `allUsers` público nos dois serviços — IAP descartado
+      (exigiria Load Balancer, já fora do escopo da infra) e allowlist de
+      CORS descartada (não protege chamada direta fora do navegador; API
+      não usa cookie/sessão). Escolhida Basic Auth com **tela de login
+      própria** em vez do popup nativo do navegador (§4.8) — o pulo do gato é
+      simplesmente não mandar o header `WWW-Authenticate` na resposta 401.
+    - Criptografia de `TokenApi` nos `.ini` (AES, §2.4) como camada extra,
+      independente da autenticação.
+    - Nenhuma mudança em `toggl-report-infra/` — autenticação liga via env
+      vars do Cloud Run (`AUTH__USUARIO`/`AUTH__SENHA`), configuradas por
+      fora do Terraform, mesmo mecanismo já usado por `VITE_API_URL`.
+21. **Exceção de `/swagger`/`/images` no gate de auth, botão "Authorize" no
+    Swagger, `LoginScreen` reaproveitando o `AppBar`, e import de `.zip` no
+    frontend** (2026-09-06, 4 ajustes pontuais, mesmo dia do item 20):
+    - `AutenticacaoBasicaMiddleware` passou a liberar também `/swagger` e
+      `/images` (antes só `/health`) — pedido explícito do usuário para o
+      Swagger continuar navegável sem credencial mesmo com a autenticação
+      ligada (§4.8).
+    - Swagger ganhou o botão **"Authorize"** (§4.7) — investigado antes de
+      implementar: a autenticação da API é um middleware manual (parsing
+      bruto do header `Authorization: Basic ...`), não
+      `AddAuthentication`/`AddJwtBearer` do ASP.NET Core; `AddSecurityDefinition`/
+      `AddSecurityRequirement` com esquema `basic` foram registrados só
+      quando `AUTH:USUARIO`/`AUTH:SENHA` estão configurados, usando a API de
+      referências nova do `Microsoft.OpenApi` 2.x (`OpenApiSecuritySchemeReference`),
+      confirmada por reflexão sobre o pacote instalado.
+    - `LoginScreen.tsx` (frontend) passou a renderizar o mesmo `AppBar` da
+      aplicação (cor de fundo + logo + título "TOGGL REPORT" na mesma fonte)
+      em vez de um cabeçalho próprio — pedido explícito para reaproveitar o
+      estilo existente, não criar um novo (§4.8/§5.5).
+    - `ImportarDadosDialog.tsx` (frontend, novo) fechou a ponta que faltava
+      para `POST /api/dados/restaurar`: o endpoint já existia desde o item
+      20, só faltava UI. Aparece uma vez por sessão quando a checagem
+      inicial de usuários vem vazia; upload via `http.postArquivo`, método
+      novo em `src/api/http.ts` (§5.3).
+    - Tela de login (`LoginScreen.tsx`) ajustada de novo a pedido do
+      usuário: em vez do `AppBar` escuro completo, o nome "TOGGL REPORT"
+      (mesma fonte/pesos Montserrat) passou para **dentro** do card branco,
+      acima do campo "Usuário", com a cor do texto trocada para
+      `text.primary` (legível no fundo claro). Abaixo do botão "Entrar",
+      adicionado o mesmo texto do rodapé da aplicação
+      ("Toggl Report – Por Gleryston Matos – v{versão}"), e o rodapé
+      (`RodapeDownloads.tsx`) passou a usar a mesma fonte Montserrat nesse
+      texto — as três aparições do nome do app (barra de título, login,
+      rodapé) usam a mesma família tipográfica.
+22. **Correção de permissão de escrita em `dados/` no Docker da Api**
+    (2026-09-07): `POST /api/dados/restaurar` (item 20) falhava em
+    produção local com `UnauthorizedAccessException` ao extrair o `.zip` —
+    a leitura (`GET /api/dados/download`) funcionava normalmente, só a
+    escrita. Causa: a imagem roda o `dotnet` como usuário não-root
+    (`$APP_UID`, padrão .NET 8+), mas `dados/` é um **bind mount** do host
+    (`docker-compose.yml`) — o Docker cria o ponto de montagem como
+    `root:root` (`755`) por padrão ao subir o container, o que o usuário
+    não-root só consegue ler, não escrever (confirmado inspecionando
+    `ls -la` dentro do container antes/depois da correção; `certificado/`
+    — outro bind mount do mesmo compose — não precisou do mesmo ajuste
+    porque a Api só **lê** o `.pfx` de lá, e `755` já permite leitura por
+    quem não é dono). Corrigido com `toggl-report-back/entrypoint.sh`: o
+    container passou a iniciar como `root` (removida a linha
+    `USER $APP_UID` do `Dockerfile`), o script faz `mkdir -p`/`chown` de
+    `dados/` para `$APP_UID` (disponível como env var em runtime, herdada da imagem base)
+    e só então troca de usuário via `su-exec` (pacote Alpine, instalado no
+    `Dockerfile`) antes de `exec dotnet TogglReport.Api.dll` — o processo
+    da aplicação continua rodando como não-root (confirmado via
+    `/proc/1/status`), só o ajuste de permissão do volume roda como root,
+    uma vez, no início do container. `.gitattributes` ganhou `*.sh text
+    eol=lf` (sem isso, o checkout no Windows normalizaria o script para
+    CRLF, quebrando o shebang dentro do container Linux). **A CRLF voltou
+    uma vez, depois de corrigida** (`exec /entrypoint.sh: no such file or
+    directory` — o erro clássico de shebang com `\r`): causa era o
+    `.editorconfig` raiz, cujo `[*] end_of_line = crlf` global não tinha
+    exceção para `.sh` — qualquer editor que o respeite (Visual Studio
+    incluso) reescreve o arquivo em CRLF ao salvar, e `.gitattributes`
+    só normaliza em operações do Git (`add`/`checkout`), não no que um
+    editor grava direto no working tree. Corrigido de vez com
+    `[*.sh] end_of_line = lf` no `.editorconfig` (mesmo padrão já usado
+    para `Dockerfile`/`.dockerignore`/`.yml`).
+23. **Correção de corrida no diálogo de importação, download autenticado,
+    e validação de estrutura do `.zip` restaurado** (2026-09-07, mesmo dia
+    dos itens 21/22, 3 ajustes pontuais):
+    - **Corrida no `useEffect` do `ImportarDadosDialog`** (App.tsx, item
+      21): a checagem "tem usuário cadastrado?" rodava no mesmo commit que
+      disparava `carregarUsuarios()`, então via sempre `carregando=false`/
+      `usuarios=[]` (valores iniciais, antes do fetch resolver) — o diálogo
+      aparecia **sempre** na primeira carga, mesmo com dados reais já
+      importados, e a checagem "só uma vez" nunca mais rodava de verdade.
+      Corrigido reagindo ao valor **resolvido** da própria promise
+      (`carregarUsuarios().then(lista => ...)`) em vez do estado reativo
+      `usuarios`/`carregando`, eliminando a corrida.
+    - **`RodapeDownloads` devolvia 401 ao baixar**: o botão usava um
+      `<a href={...}>` de navegação direta — nunca carrega a credencial
+      (a API não usa `WWW-Authenticate`/cookie de propósito, §4.8), então
+      o download sempre caía sem `Authorization`. Trocado por
+      `http.getArquivo` (novo, `src/api/http.ts`) + `dadosApi.baixarDados`
+      (blob + `URL.createObjectURL`, ver §5.3).
+    - **`POST /api/dados/restaurar` ganhou validação de estrutura**: 400 se
+      alguma entrada do zip estiver dentro de uma pasta
+      (`entrada.FullName != entrada.Name`) — o `.zip` precisa ter os
+      arquivos direto na raiz (compactar o **conteúdo** de `dados/`, não a
+      pasta em si); entradas de diretório puro (`Name` vazio) são
+      ignoradas, não rejeitadas (§4.2).
+24. **Usuários separados num arquivo próprio, `TogglUsuarios.ini`** (2026-09-07,
+    pedido do usuário: "reorganizei e padronizei a estrutura dos ini do
+    projeto... criei um ini novo separado apenas para os usuários"):
+    - Novo `TogglReport.Nucleo/Configuracao/CarregadorUsuariosIni.cs`
+      (`Carregar`/`Salvar` das seções `[Usuario:*]`, mesma lógica que antes
+      vivia dentro de `CarregadorConfiguracaoIni`) e `CaminhosDados.
+      CaminhoUsuarios` (novo, `dados/TogglUsuarios.ini`, sem "nome antigo"
+      porque é um arquivo novo, não uma renomeação).
+    - `CarregadorConfiguracaoIni.Carregar`/`.Salvar` ganharam um segundo
+      parâmetro (`caminhoUsuarios`) e passaram a delegar `Usuarios` para
+      `CarregadorUsuariosIni` — o `[Geral]` (agrupamento/tags/período)
+      continua em `TogglRelatorioParametros.ini`. `ConfiguracaoApp.Usuarios`
+      **não mudou de forma nenhuma** como propriedade em memória — só onde
+      é persistido — então nenhum consumidor (`ServicoConsulta`,
+      `ServicoGant`, `Tela`, `AssistenteConfiguracao`, `MenuTokenUsuario`,
+      DTOs da API) precisou de qualquer alteração; só o `Program.cs`
+      (console e API) e os 6 arquivos de `Endpoints/` que já chamavam
+      `CarregadorConfiguracaoIni` ganharam o parâmetro extra (mecânico, sem
+      lógica nova).
+    - **Migração automática, sem intervenção manual** (mesmo espírito do
+      item 18, mas migrando **conteúdo** entre dois arquivos, não
+      renomeando um arquivo inteiro): `CarregadorUsuariosIni.Carregar`
+      recebe o caminho do arquivo de parâmetros como "migração legada" — se
+      `TogglUsuarios.ini` ainda não existe mas esse arquivo tem seções
+      `[Usuario:*]` (formato anterior), extrai e grava no arquivo novo na
+      primeira leitura; o arquivo de parâmetros perde essas seções
+      sozinho na próxima vez que for salvo (já que `Salvar` não as escreve
+      mais ali). Validado com um projeto de teste isolado (fora do
+      repositório de dados reais): arquivo legado com um usuário embutido
+      → `TogglUsuarios.ini` criado automaticamente com o token já
+      criptografado, sem intervenção manual.
+    - `CarregadorConfiguracaoIni.Carregar` agora só devolve `null` quando
+      **nem** o arquivo de parâmetros **nem** `TogglUsuarios.ini` têm
+      conteúdo (antes, `null` só dependia de `TogglRelatorioParametros.ini`)
+      — mais preciso para decidir "existe alguma configuração salva?"
+      (usado por `OfereceRestaurarBackupSeNecessario` no console, ver §2.2).
+    - `.gitignore` (raiz e `toggl-report-back/`) e `.dockerignore`
+      (`toggl-report-back/`) ganharam a entrada `TogglUsuarios.ini`, ao lado
+      das outras — contém `TokenApi` criptografado, tratado como segredo
+      igual aos demais.
+    - Nenhuma rota HTTP mudou de contrato — `GET /api/dados/download` (zipa
+      `dados/` inteira, sem lista fixa) já inclui `TogglUsuarios.ini`
+      automaticamente, sem mudança de código.
+25. **`POST /api/dados/restaurar` sem tratamento de erro de I/O** (2026-09-07):
+    reportado pelo usuário como "erro ao importar quando a pasta não existe" —
+    investigado a fundo (3 containers Docker isolados, pasta `dados/` nunca
+    criada no host antes de subir, incluindo o caso do próprio `docker run`
+    tendo que criar o bind mount do zero) sem conseguir reproduzir uma falha
+    de "pasta ausente" isolada, já que `Directory.CreateDirectory` já
+    existia ali desde o item 20. O bug real, porém, estava logo ao lado:
+    esse `Directory.CreateDirectory(pastaDados)` ficava **fora** do
+    `try/catch`, e o `catch` só tratava `InvalidDataException` (zip
+    inválido) — qualquer `IOException`/`UnauthorizedAccessException` real
+    (a mesma classe de erro do item 22, se acontecer de novo por qualquer
+    outro motivo) subia como exceção não tratada (500 cru, stack trace na
+    resposta), fugindo do padrão `catch (Exception ex) when (ex is
+    IOException or UnauthorizedAccessException) → Results.Problem(...)`
+    que todo o resto da API já segue (`UsuariosEndpoints`,
+    `ConfiguracaoEndpoints`, `GantEndpoints`). Corrigido: `Directory.
+    CreateDirectory` movido para dentro do `try`, e um segundo `catch`
+    adicionado para esses dois tipos, devolvendo 500 com mensagem limpa em
+    vez de um erro cru. Revalidado nos mesmos 3 cenários isolados — todos
+    continuam `204`.
 
 ---
 
@@ -1156,7 +1483,8 @@ uso, mas só depois de encontrá-lo — até lá, ele ainda existe em disco com 
 nome antigo. Se o `.gitignore` for regenerado do template do GitHub,
 **reaplicar as linhas dos oito nomes** (`TogglRelatorioParametros.ini`,
 `TogglRelatorioData.ini`, `TogglGantParametros.ini`, `TogglGantData.ini`, e os
-4 antigos acima).
+4 antigos acima) **mais `TogglUsuarios.ini`** (item 24 do histórico — arquivo
+novo, não renomeação, então sem "nome antigo" equivalente).
 
 `.env`/`!.env.example` (raiz, item 19 do histórico) foram adicionados junto
 da correção da senha do certificado Kestrel — `docker-compose.yml` passou a

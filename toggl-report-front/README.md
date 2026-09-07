@@ -13,6 +13,9 @@ Frontend em **React 19 + TypeScript + MUI** (via Vite) que consome a [Web API do
 
 ```bash
 npm install
+```
+
+```bash
 npm run dev       # http://localhost:5173, com hot reload
 ```
 
@@ -39,11 +42,34 @@ Outros scripts:
 
 ```bash
 npm run build     # tsc -b && vite build — gera dist/
+```
+
+```bash
 npm run preview   # serve o build de produção localmente
+```
+
+```bash
 npm run lint      # oxlint
 ```
 
 ## Fluxo da aplicação
+
+Se a Web API exigir autenticação (`AUTH__USUARIO`/`AUTH__SENHA` configurados —
+não é o padrão, ver [README do back-end](../toggl-report-back/README.md#segurança)),
+o app mostra uma tela de login própria antes de tudo (`src/features/auth/`)
+— sem autenticação configurada na API, pula direto para o fluxo normal. A
+tela de login reaproveita o mesmo cabeçalho (`AppBar`) da aplicação — mesma
+cor de fundo, logo ao lado do nome "TOGGL REPORT" na mesma fonte (Montserrat
+Semi-Bold + Light) — em vez de um estilo próprio.
+
+Se não houver nenhum usuário cadastrado na primeira verificação após abrir o
+app, um diálogo (`ImportarDadosDialog`, `src/features/dados/`) oferece
+restaurar a pasta `dados/` a partir de um backup `.zip`
+(`POST /api/dados/restaurar`) ou seguir sem importar e cadastrar tudo
+manualmente pelo fluxo normal — só aparece uma vez por sessão, não a cada
+vez que a lista de usuários fica vazia. O `.zip` precisa ter os arquivos
+direto na raiz (não uma pasta `dados/` por dentro) — a API rejeita com 400
+caso contrário.
 
 Navegação por `Tabs` (MUI): **"Usuários"** (aba fixa, selecionada por padrão na abertura), **"Relatório"** e **"Gant"** — os dois últimos com seu próprio `Stepper` não-linear de 3 etapas, cada uma só liberada depois que a anterior tem o que ela precisa.
 
@@ -58,14 +84,14 @@ Navegação por `Tabs` (MUI): **"Usuários"** (aba fixa, selecionada por padrão
 
 `ConsultaPanel` é o **mesmo componente** nos dois fluxos (recebe `resultado`/`consultando`/`executar` como props, e `agrupamento`/`tagsDetalhadas` como opcionais) — não há duplicação entre relatório e Gantt.
 
-Um rodapé (`RodapeDownloads`) linka o download da pasta `dados/` inteira (compactada em `.zip`) e mostra a versão do app.
+Um rodapé (`RodapeDownloads`) baixa a pasta `dados/` inteira (compactada em `.zip`) e mostra a versão do app — via `fetch` autenticado + blob (não um link direto: sem isso, a credencial nunca é anexada e o download falha com 401, já que a API não usa `WWW-Authenticate`/cookie). A importação do lado oposto (`.zip` → pasta `dados/`) é o `ImportarDadosDialog` citado acima, não fica no rodapé.
 
 ## Estrutura
 
 ```
 src/
  ├─ api/            # client HTTP tipado — um módulo por grupo de endpoints (inclui gantApi.ts), + tipos.ts (espelha os DTOs da API)
- ├─ features/        # configuracao/ usuarios/ consulta/ relatorio/ busca/ gant/ dados/ — cada um com hook(s) + componente(s)
+ ├─ features/        # configuracao/ usuarios/ consulta/ relatorio/ busca/ gant/ dados/ (RodapeDownloads + ImportarDadosDialog) — cada um com hook(s) + componente(s)
  ├─ components/      # peças reutilizáveis entre features (BotaoComCarregamento, DialogoConfirmacao)
  ├─ hooks/            # useNotificacao — snackbar global para erros de API
  ├─ utils/            # duracao.ts (HHhMMmSSs), datas.ts (ISO, "últimos 30 dias", "iniciado às...")
@@ -82,6 +108,9 @@ src/
 - **`RegistroTempoBruto`** (usado em `emAndamento` do relatório) tem campos em **snake_case** (`workspace_id`, `description`, `duration`, ...) — reflete o DTO cru que a API reaproveita do Toggl; todo o resto do contrato é camelCase.
 - **Tema único, claro** — sem alternância dia/noite (um tema escuro chegou a existir e foi removido a pedido). Título "TOGGL REPORT" em Montserrat (Semi-Bold + Light), ícone do app na `AppBar`.
 - **Gantt não duplica o relatório**: `ConsultaPanel` é compartilhado entre os dois fluxos (props em vez de estado interno); o resultado da busca por descrição do Gantt reaproveita a própria tabela do Gantt (mesmas cores/colunas/colapso), diferente do `BuscaPanel` do relatório, que é uma lista.
+- **Login sem popup nativo do navegador**: a API nunca manda `WWW-Authenticate` no 401, então o navegador não abre o prompt padrão de Basic Auth — o app trata o 401 e mostra `LoginScreen` própria, com o mesmo `AppBar` (cor/logo/fonte) do resto do app, não um estilo à parte. Credencial fica em `sessionStorage` (não `localStorage`) — some ao fechar a aba.
+- **Upload de `.zip` reaproveita o wrapper HTTP, não uma lib nova**: `http.postArquivo` (`src/api/http.ts`) monta um `FormData` e faz o próprio `fetch`, porque o restante do wrapper (`http.get/post/put/delete`) sempre serializa o corpo como JSON — mas segue a mesma lógica de credencial/401 dos demais métodos.
+- **Download também é `fetch` próprio (`http.getArquivo`), não um `<a href>` simples**: lê o corpo como `Blob` e o nome do arquivo do header `Content-Disposition`, e `dadosApi.baixarDados` dispara o download via `URL.createObjectURL` + um `<a>` temporário — necessário porque um link de navegação direta nunca carrega a credencial (mesmo motivo do login sem popup nativo, ver `LoginScreen`).
 
 ## Contrato consumido
 

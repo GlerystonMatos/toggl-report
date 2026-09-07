@@ -40,7 +40,7 @@ steps:
               npm run lint
 
     # 3) O frontend precisa da URL do backend em BUILD TIME (VITE_API_URL é
-    #    bake-ado no bundle, não é variável de runtime) — o serviço já existe
+    #    gravado no bundle, não é variável de runtime) — o serviço já existe
     #    desde o "terraform apply" da Fase 3 (com imagem placeholder), então a
     #    URL já é conhecida antes do primeiro deploy real.
     - id: resolve-backend-url
@@ -139,11 +139,11 @@ steps:
               BACKEND_URL=$(gcloud run services describe "$_BACKEND_SERVICE" --project="$PROJECT_ID" --region="$_REGION" --format="value(status.url)")
               FRONTEND_URL=$(gcloud run services describe "$_FRONTEND_SERVICE" --project="$PROJECT_ID" --region="$_REGION" --format="value(status.url)")
 
-              echo "Checando backend: $BACKEND_URL/health"
-              curl -sf "$BACKEND_URL/health"
+              echo "Checando backend: $$BACKEND_URL/health"
+              curl -sf "$$BACKEND_URL/health"
 
-              echo "Checando frontend: $FRONTEND_URL/"
-              curl -sf "$FRONTEND_URL/" > /dev/null
+              echo "Checando frontend: $$FRONTEND_URL/"
+              curl -sf "$$FRONTEND_URL/" > /dev/null
 
               echo "Health check OK."
 

@@ -7,7 +7,7 @@ namespace RelatorioToggl.Api.Endpoints;
 
 public static class GantEndpoints
 {
-    public static void MapGantEndpoints(this WebApplication app, string caminhoConfiguracao, string caminhoParametrosGant, string caminhoCacheGant)
+    public static void MapGantEndpoints(this WebApplication app, string caminhoConfiguracao, string caminhoUsuarios, string caminhoParametrosGant, string caminhoCacheGant)
     {
         RouteGroupBuilder grupo = app.MapGroup("/api/gant").WithTags("Gant");
 
@@ -55,7 +55,7 @@ public static class GantEndpoints
             if (fim < inicio)
                 return Results.BadRequest("A data fim não pode ser anterior à data início.");
 
-            ConfiguracaoApp? configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao);
+            ConfiguracaoApp? configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao, caminhoUsuarios);
             if (configuracao is not null)
                 configuracao.Usuarios = configuracao.Usuarios.Where(u => u.Selecionado).ToList();
 
@@ -93,7 +93,7 @@ public static class GantEndpoints
             if (!DateTime.TryParse(dataInicio, out DateTime inicio) || !DateTime.TryParse(dataFim, out DateTime fim))
                 return Results.BadRequest("Datas inválidas. Use o formato AAAA-MM-DD.");
 
-            ConfiguracaoApp? configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao);
+            ConfiguracaoApp? configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao, caminhoUsuarios);
             if (configuracao is null || configuracao.Usuarios.Count == 0)
                 return Results.BadRequest("Nenhum usuário cadastrado.");
 
