@@ -1455,6 +1455,26 @@ histórico mantido como estava escrito, sem reescrever caminhos.
     adicionado para esses dois tipos, devolvendo 500 com mensagem limpa em
     vez de um erro cru. Revalidado nos mesmos 3 cenários isolados — todos
     continuam `204`.
+26. **`.gitignore` da raiz ignorava sem querer uma pasta de código-fonte do
+    frontend** (2026-09-07): o deploy (Cloud Build, passo `test-frontend`)
+    quebrou com `error TS2307: Cannot find module
+    './features/dados/ImportarDadosDialog'` — o arquivo existia em disco e
+    compilava localmente, mas nunca tinha sido versionado. Causa: `.gitignore`
+    da raiz tinha `dados/` e `certificado/` **sem `/` na frente** — um
+    padrão assim no Git bate em qualquer pasta com esse nome, em qualquer
+    profundidade da árvore, não só na raiz. Isso incluía silenciosamente
+    `toggl-report-front/src/features/dados/` (pasta de código-fonte
+    legítima, item 17 do histórico) — qualquer arquivo **novo** criado ali
+    era ignorado por `git add` sem aviso (arquivos **já rastreados antes**
+    da regra existir, como `RodapeDownloads.tsx`, não são afetados
+    retroativamente — só isso escondeu o problema até agora). Corrigido
+    ancorando os dois padrões (`/dados/`, `/certificado/`, só a pasta da
+    raiz) e recuperando o arquivo com `git add -f`. **Lição para sessões
+    futuras**: ao criar um arquivo novo dentro de uma pasta chamada
+    `dados/`, `certificado/`, ou qualquer nome que também exista como pasta
+    de runtime na raiz do repo, confirmar com `git status`/`git check-ignore
+    -v <arquivo>` que ele não está sendo silenciosamente ignorado antes de
+    dar o trabalho por commitado.
 
 ---
 
@@ -1490,6 +1510,17 @@ novo, não renomeação, então sem "nome antigo" equivalente).
 da correção da senha do certificado Kestrel — `docker-compose.yml` passou a
 ler `KESTREL_CERT_PASSWORD` de um `.env` local em vez de ter o valor em
 texto puro no arquivo versionado.
+
+`/dados/` e `/certificado/` (raiz) são **ancorados** (`/` na frente) desde o
+item 26 do histórico — sem a barra, o padrão batia em qualquer pasta com
+esse nome na árvore inteira, o que silenciosamente ignorava arquivos novos
+dentro de `toggl-report-front/src/features/dados/` (pasta de código-fonte
+legítima) e quebrou um deploy. Os padrões de nome de arquivo bare
+(`TogglRelatorioParametros.ini` e os demais logo abaixo) **não** têm esse
+problema — não existe hoje nenhum arquivo de código-fonte com esses nomes
+exatos —, mas o cuidado vale para qualquer padrão novo adicionado aqui que
+seja também um nome plausível de pasta/arquivo dentro de `toggl-report-front/`
+ou `toggl-report-back/`.
 
 ---
 
