@@ -1,0 +1,1 @@
+export const FONTE_MARCA = '"Montserrat", sans-serif';

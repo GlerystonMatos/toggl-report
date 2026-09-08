@@ -20,9 +20,7 @@ public static class CarregadorConfiguracaoIni
                 configuracao.DataInicioAnterior = AnalisadorIni.ObterOuNulo(geral, "DataInicioAnterior");
                 configuracao.DataFimAnterior = AnalisadorIni.ObterOuNulo(geral, "DataFimAnterior");
                 configuracao.AgrupamentoPadrao = AnalisadorIni.ObterOuPadrao(geral, "AgrupamentoPadrao", "ambos");
-                configuracao.TagsDetalhadas = AnalisadorIni.ObterOuPadrao(geral, "TagsDetalhadas", "")
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .ToList();
+                configuracao.TagsDetalhadas = AnalisadorIni.DividirLista(AnalisadorIni.ObterOuPadrao(geral, "TagsDetalhadas", ""));
             }
         }
 
@@ -33,8 +31,6 @@ public static class CarregadorConfiguracaoIni
 
     public static void Salvar(string caminho, string caminhoUsuarios, ConfiguracaoApp configuracao)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(caminho)!);
-
         StringBuilder sb = new();
         sb.AppendLine($"[{SecaoGeral}]");
         sb.AppendLine($"DataInicioAnterior={configuracao.DataInicioAnterior}");
@@ -42,7 +38,7 @@ public static class CarregadorConfiguracaoIni
         sb.AppendLine($"AgrupamentoPadrao={configuracao.AgrupamentoPadrao}");
         sb.AppendLine($"TagsDetalhadas={string.Join(",", configuracao.TagsDetalhadas)}");
 
-        File.WriteAllText(caminho, sb.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        AnalisadorIni.Escrever(caminho, sb.ToString());
 
         CarregadorUsuariosIni.Salvar(caminhoUsuarios, configuracao.Usuarios);
     }

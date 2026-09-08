@@ -32,6 +32,7 @@ Console e Web API são interfaces diferentes para a **mesma lógica**: ambos con
     - [Endpoints](#endpoints)
     - [Exemplos de request/response](#exemplos-de-requestresponse)
     - [Gráfico de Gantt](#gráfico-de-gantt)
+    - [Sprint](#sprint)
     - [Decisões desta camada](#decisões-desta-camada)
   - [Estrutura de arquivos](#estrutura-de-arquivos)
   - [Segurança](#segurança)
@@ -94,7 +95,7 @@ O assistente pede, **campo a campo**: **agrupamento** (descrição / tag / ambos
 
 ```
 ╔════════════════════════════════════════════════════════════════════════════════════════════════════╗
-║ RELATÓRIO TOGGL · por Gleryston Matos · v1.0.0.0                                                   ║
+║ RELATÓRIO TOGGL · por Gleryston Matos · v1.0.1.0                                                   ║
 ╠════════════════════════════════════════════════════════════════════════════════════════════════════╣
 ║ Período: 2026-08-01 a 2026-08-31 · Agrupamento: Ambos                                              ║
 ╚════════════════════════════════════════════════════════════════════════════════════════════════════╝
@@ -196,7 +197,7 @@ Biblioteca de classes referenciada pelo `TogglReport.Console` (console) e pelo `
 
 | Pasta | Conteúdo |
 |---|---|
-| `Configuracao/` | `ConfiguracaoApp`/`ConfiguracaoUsuario` (modelo do `[Geral]` de `TogglRelatorioParametros.ini` + usuários em memória), `CarregadorConfiguracaoIni` (agrupamento/tags/período), `CarregadorUsuariosIni` (`TogglUsuarios.ini` — usuários/tokens, compartilhado com o Gantt), `CriptografiaToken` (AES do `TokenApi`), `CacheConsulta`/`UsuarioCacheado` (modelo do `TogglRelatorioData.ini`), `CarregadorCacheIni`, `AnalisadorIni` (parser de INI compartilhado), `CaminhosDados` (monta os caminhos `dados/TogglRelatorioParametros.ini`, `dados/TogglUsuarios.ini` e `dados/TogglRelatorioData.ini` a partir do diretório base de quem chama), `ServicoUsuarios` (gerar chave única, checar nome em uso, mascarar token) |
+| `Configuracao/` | `ConfiguracaoApp`/`ConfiguracaoUsuario` (modelo do `[Geral]` de `TogglRelatorioParametros.ini` + usuários em memória), `CarregadorConfiguracaoIni` (agrupamento/tags/período), `CarregadorUsuariosIni` (`TogglUsuarios.ini` — usuários/tokens, compartilhado com o Gantt), `CriptografiaToken` (AES do `TokenApi`), `CacheConsulta`/`UsuarioCacheado` (modelo do `TogglRelatorioData.ini`), `CarregadorCacheIni`, `AnalisadorIni` (parser de INI compartilhado — `Analisar`/`ObterOuPadrao`/`ObterOuNulo` + `Escrever` (grava UTF-8 sem BOM, criando a pasta) e `DividirLista` (split de lista separada por vírgula)), `CaminhosDados` (monta os caminhos `dados/TogglRelatorioParametros.ini`, `dados/TogglUsuarios.ini` e `dados/TogglRelatorioData.ini` a partir do diretório base de quem chama), `ServicoUsuarios` (gerar chave única, checar nome em uso, mascarar token), `ServicoChaves` (`GerarChaveUnica` compartilhado por `ServicoUsuarios`/`ServicoSprints`), `DiasUteis` (`Entre(inicio, fim)` — dias seg–sex, base do `ServicoGant`/`ServicoSprint`), `Agrupamento` (`EhValido` — `descricao`/`tag`/`ambos`, usado pelos 3 endpoints de parâmetros) |
 | `Toggl/` | `ClienteApiToggl` (HTTP Basic contra `api.track.toggl.com/api/v9`), `RegistroTempoDto`, `ResultadoApiToggl`, `LimitadorRequisicoes` (limite de 30 req/hora, em memória, por processo) |
 | `Relatorios/` | `ServicoAgrupamento` (por descrição/tag, normalização "TEL"), `LinhaDescricao`, `ServicoBuscaDescricao`, `LinhaBusca`, `ResultadoBuscaDescricao` — tudo puro, devolve dados, nunca texto formatado |
 | `Consultas/` | `ServicoConsulta` — decide cache×API e aplica o rate limiter; `ResultadoConsulta`, `EventoConsultaUsuario`, `StatusConsultaUsuario` |
@@ -238,9 +239,17 @@ Cria sua **própria** pasta `dados/` (ao lado do executável da API) — indepen
 | `GET` | `/api/dados/download` | Baixa a pasta `dados/` inteira compactada em `dados.zip` (todos os arquivos presentes no momento, sem lista fixa) |
 | `POST` | `/api/dados/restaurar` | Restaura a pasta `dados/` a partir de um `.zip` enviado (`multipart/form-data`, campo `arquivo`) — sobrescreve arquivos existentes, criando a pasta se ainda não existir. 400 se algum arquivo do zip estiver dentro de uma pasta (deve compactar o **conteúdo** de `dados/`, não a pasta em si); 500 com mensagem limpa em qualquer outra falha de I/O |
 | `GET` | `/api/gant/parametros` | Período, tags a detalhar e agrupamento do **Gantt** (independente do relatório) |
-| `PUT` | `/api/gant/parametros` | Atualiza os parâmetros do Gantt |
+| `PUT` | `/api/gant/parametros` | Atualiza os parâmetros do Gantt — desde 2026-09-07 valida `agrupamento` (400 se fora de `descricao`/`tag`/`ambos`), como os endpoints de parâmetros do relatório e do Sprint já faziam |
 | `POST` | `/api/gant/consultas` | Igual a `/api/consultas`, mas grava em `TogglGantData.ini` |
 | `GET` | `/api/gant?dataInicio=&dataFim=&termo=` | Gantt agrupado por usuário/categoria/descrição, dia a dia (só dias úteis); `termo` filtra por descrição |
+| `GET` | `/api/sprints` | Lista os sprints cadastrados |
+| `POST` | `/api/sprints` | Cadastra um sprint (`Nome`, `HorasPorDia`, `DataInicio`, `DataFim`) — 400 (nome vazio, datas inválidas, `fim < inicio`, `HorasPorDia <= 0`) / 409 (nome em uso) |
+| `PUT` | `/api/sprints/{chave}` | Edita um sprint (campos `null`/vazios não alteram) |
+| `DELETE` | `/api/sprints/{chave}` | Remove um sprint |
+| `GET` | `/api/sprint/categorias` | Parâmetros do Sprint: mapeamento global TAG → categoria + agrupamento + tags detalhadas: `{ dev, rev, qa: string[], agrupamento: string, tagsDetalhadas: string[] }` — sem arquivo/chave, as listas vêm vazias e `agrupamento = "ambos"` (`{"dev":[],"rev":[],"qa":[],"agrupamento":"ambos","tagsDetalhadas":[]}`) |
+| `PUT` | `/api/sprint/categorias` | Atualiza os parâmetros (normaliza as listas: trim + distinct case-insensitive + descarta vazias; valida `agrupamento` contra `descricao`/`tag`/`ambos`, 400 se inválido). `ServicoSprint.Montar` consome os dois na chave de agrupamento da grid (por descrição ou por tag, regra do `ServicoGant`) |
+| `POST` | `/api/sprint/consultas` | Igual a `/api/consultas`, mas grava em `TogglSprintData.ini` |
+| `GET` | `/api/sprint?chaveSprint=` | Acompanhamento do sprint: capacidade + card de colaboradores + grid com uma linha por (tarefa × colaborador); 409 se não há consulta salva para o período do sprint |
 
 ### Exemplos de request/response
 
@@ -259,19 +268,46 @@ Cria sua **própria** pasta `dados/` (ao lado do executável da API) — indepen
 ```
 `status` é sempre uma string: `Sucesso`, `Erro`, `LimiteAtingidoComCache` ou `LimiteAtingidoSemCache`.
 
-**`GET /api/relatorio?dataInicio=2026-08-01&dataFim=2026-08-31`** — 409 se não houver consulta salva para esse período exato (chame `POST /api/consultas` primeiro); 200 com, por usuário, `porDescricao`, `porTag`, `emAndamento` e `totalSegundos`. **Atenção**: os itens de `emAndamento` vêm em **snake_case** (`workspace_id`, `project_id`, `description`, `duration`, `start`, `stop`) — é o DTO cru reaproveitado do Toggl, diferente do resto da API que é camelCase.
+**`GET /api/relatorio?dataInicio=2026-08-01&dataFim=2026-08-31`** — 409 se não houver consulta salva para esse período exato (chame `POST /api/consultas` primeiro); 200 com, por usuário, `porDescricao` (cada item traz `descricao`, `segundos` e `tag`), `porTag`, `emAndamento` e `totalSegundos`. **Atenção**: os itens de `emAndamento` vêm em **snake_case** (`workspace_id`, `project_id`, `description`, `duration`, `start`, `stop`) — é o DTO cru reaproveitado do Toggl, diferente do resto da API que é camelCase.
+
+No frontend, cada usuário do Relatório é uma **tabela** (`[checkbox] · Tag · Descrição · Tempo`), com as linhas por descrição e depois as por tag concatenadas, sem títulos de seção; a `tag` fica em coluna própria e a descrição aparece crua (sem prefixo). O console mantém o prefixo `(tag) descrição` e o layout em texto.
 
 **`GET /api/busca?termo=reuniao`** — 409 se não há cache ainda; 200 com `linhas` (descrição, segundos por usuário, total da linha) e `totalGeralSegundos`.
 
 ### Gráfico de Gantt
 
-`/api/gant/*` é um segundo fluxo, com parâmetros (`ConfiguracaoGant`: período + tags a detalhar + agrupamento) e cache (`dados/TogglGantData.ini`) **independentes** do relatório — reaproveita a mesma lista de usuários e o mesmo `ServicoConsulta`, só troca o arquivo de cache. `GET /api/gant` devolve `{ dias, linhas }`: `dias` são só os **dias úteis** do período (sábado/domingo ocultos); cada linha pertence a um único usuário, agrupada por categoria (tag) + descrição — tags na lista "a detalhar" viram uma linha por descrição, as demais ficam agregadas numa única linha por tag. O parâmetro opcional `termo` filtra por descrição antes de agrupar (mesma rota, sem endpoint novo).
+`/api/gant/*` é um segundo fluxo, com parâmetros (`ConfiguracaoGant`: período + tags a detalhar + agrupamento) e cache (`dados/TogglGantData.ini`) **independentes** do relatório — reaproveita a mesma lista de usuários e o mesmo `ServicoConsulta`, só troca o arquivo de cache. `GET /api/gant` devolve `{ dias, linhas }`: `dias` são só os **dias úteis** do período (sábado/domingo ocultos); cada linha pertence a um único usuário, agrupada por categoria (tag) + descrição — tags na lista "a detalhar" viram uma linha por descrição, as demais ficam agregadas numa única linha por tag. O parâmetro opcional `termo` filtra por descrição antes de agrupar (mesma rota, sem endpoint novo). No frontend, a tabela do Gantt mostra a descrição **truncada em 50 caracteres** com um _tooltip_ da descrição completa.
 
 Os usuários ganharam três campos exclusivos da versão web (persistidos no `TogglUsuarios.ini`, ignorados pelo console): `sigla`/`cor` (identificação visual nas células do Gantt) e `selecionado` (`bool`, default `true` — só usuários selecionados entram na próxima consulta, seja do relatório ou do Gantt).
+
+### Sprint
+
+`/api/sprints` e `/api/sprint/*` são a terceira visualização — só na versão web, sem equivalente no console, molde do Gantt. Diferente do relatório e do Gantt, tem **gestão** (CRUD de sprints) além do acompanhamento. Cada sprint tem `Nome`, `HorasPorDia`, `DataInicio` e `DataFim` próprios; um mapeamento **global** (não por sprint) de TAG → categoria (`Dev`/`Rev`/`Qa`); e cache de consulta dedicado. Três arquivos INI novos em `dados/` (todos no `.gitignore`/`.dockerignore`):
+
+| Arquivo | Conteúdo |
+|---|---|
+| `TogglSprints.ini` | seções `[Sprint:<chave>]` — `Nome`, `HorasPorDia` (decimal, `InvariantCulture`), `DataInicio`, `DataFim` (`yyyy-MM-dd`) |
+| `TogglSprintCategorias.ini` | seção `[Geral]` — `Dev`/`Rev`/`Qa` = listas de tags separadas por vírgula, mais `Agrupamento` (`descricao`/`tag`/`ambos`) e `TagsDetalhadas` (lista de tags) da etapa "Parâmetros" do fluxo Sprint. `Carregar` nunca devolve `null`: sem arquivo/chave cai no padrão, que **não tem nenhuma TAG** — `Dev`/`Rev`/`Qa` e `TagsDetalhadas` vazias, só `Agrupamento = ambos`. A etapa "Parâmetros" do frontend obriga o usuário a preencher DEV/REV/QA antes de avançar. `ServicoSprint.Montar` usa `Agrupamento`/`TagsDetalhadas` para decidir a chave de linha da grid (descrição normalizada ou nome da tag), mesma regra do `ServicoGant` |
+| `TogglSprintData.ini` | cache de consulta — **mesmo formato** do `TogglRelatorioData.ini`/`TogglGantData.ini` (dado cru, token criptografado) |
+
+> O antigo `TogglSprintTarefas.ini` (campos manuais por tarefa: prioridade + situação por categoria) e o endpoint `PUT /api/sprint/tarefas` **foram removidos** — Prioridade e Situação não são mais editáveis nem persistidas, viraram valores fixos exibidos no frontend ("Baixa" / "Pendente"), "sem integração por enquanto".
+
+`POST /api/sprint/consultas` reaproveita o `ServicoConsulta` inteiro (cache-first, rate limit, filtro por `Selecionado`), só troca o arquivo de cache. `GET /api/sprint` monta o acompanhamento por `ServicoSprint.Montar` (núcleo, `Sprint/`):
+
+- **Capacidade por colaborador**: `diasUteis` = dias do período excluindo sábado/domingo; `tempoTotal` = `HorasPorDia × diasUteis`; `margem` = `floor(30% de tempoTotal)`; `TD` (tempo disponível por colaborador) = `floor(tempoTotal − margem)`; `CT` (capacidade total) = `TD × nº de colaboradores selecionados`. Ex.: `HorasPorDia=7`, `2026-09-01`→`2026-09-24` → `diasUteis=18`, `tempoTotal=126`, `margem=37`, `TD=89`, `CT=89` (1 colaborador). O `CabecalhoSprint` traz `Ct` e (após ele) `Td`, mais `TarefasPendentes` (nº de descrições distintas no grid) e `TarefasConcluidas` (**sempre 0** — não há mais situação). O frontend rotula `CT` como "Capacidade" e `TD` como "Tempo por colaborador" (ex-"Total"), exibe uma coluna "Disponível" derivada no cliente, e um botão "Informações" abre um modal com esses números (também sem os rótulos "TD"/"CT"). Os campos de texto do card do sprint (Sprint, Horas/dia, Dias úteis, Margem, Início, Fim) são renderizados maiores e em azul (`primary.main`, a mesma cor da "Capacidade").
+- **Colaboradores** (`ResultadoSprint.Colaboradores`): uma linha por colaborador selecionado — `record LinhaColaboradorSprint(NomeExibicao, Sigla, Cor, Td, SegundosRealizados, TarefasPendentes, TarefasConcluidas)` (inalterado; `TarefasConcluidas` sempre 0). `Td` é igual para todos; `SegundosRealizados` = soma das durações `>= 0` de **todos** os apontamentos do usuário no cache do sprint (com ou sem tag de categoria). Colaborador sem nenhum apontamento entra zerado. Sem detalhamento por dia — isso é o Gantt. A tabela de colaboradores do frontend mostra **Colab. (nome completo) · sigla · Tempo por colaborador (`Td`, ex-"Total") · Realizado · Disponível · Pendentes · Concluídas** com rodapé somando Pendentes/Concluídas — "Disponível" = `Tempo por colaborador − Realizado` é calculada no frontend (verde quando positiva, vermelha quando negativa).
+- **Grid de tarefas** — `ServicoSprint.Montar` (sem parâmetro `manuais`) emite **uma linha por (tarefa × colaborador)**: `record LinhaTarefaSprint(string Codigo, string Descricao, string NomeExibicao, string Sigla, string Cor, bool Agrupada, BlocoCategoriaSprint Dev, Rev, Qa)`, `record BlocoCategoriaSprint(decimal PreHoras, long ReaSegundos)`. `ChaveAgrupamento(registro, categorias)` devolve `(string Chave, bool Agrupada)`:
+  - **Linha de descrição** (`Agrupada == false`): uma por `(descrição normalizada "TEL" × colaborador)`. `Codigo`/`Descricao` de `SepararCodigo` — regex `^(TEL - \d+)(?: - (.+))?$` → `Codigo = "TEL - 0000"`, `Descricao` = resto; sem casar → `Codigo = ""`, `Descricao` = texto inteiro. `ReaSegundos` de cada grupo DEV/REV/QA = tempo desse colaborador nessa descrição cujas tags ∈ `categorias.Dev`/`Rev`/`Qa`.
+  - **Linha tag-agg** (`Agrupada == true`, só com `agrupamento` `tag`/`ambos`): uma por `(tag × colaborador)`, `Codigo = ""`, `Descricao` = nome da tag. **Todo** o tempo do colaborador naquela tag vai para **um** grupo: **QA** se o colaborador tem ≥ 1 apontamento no sprint com tag ∈ `categorias.Qa` (pré-passo `colaboradoresComQa`), senão **DEV**. REV nunca recebe tag-agg.
+  - **Ordenação**: por **número do código**, não por string (era bug — `TEL - 1118` vinha antes de `TEL - 994`). Helper `NumeroCodigo(string codigo)` extrai só os dígitos de `Codigo`; a grade fica `.ThenBy(t => t.Agrupada ? 0 : NumeroCodigo(t.Codigo))` antes do desempate por string. Linhas de descrição primeiro (as com `Codigo` antes das sem; por `NumeroCodigo` crescente, depois desempate `Codigo`/`Descricao`), depois as tag-agg (pela ordem do colaborador em `usuariosSelecionados`, depois por `Descricao`). Resultado: `TEL - 994 → TEL - 1000 → TEL - 1118`.
+  - Frontend: 1ª coluna de **checkbox** (risca a descrição da linha; a marcação fica salva no `localStorage` do navegador **isolada por sprint** — a chave inclui o `chaveSprint` — e só é apagada numa nova consulta real à API, não ao carregar do cache), depois colunas **Prioridade · Situação · Código · Descrição** + grupos DEV/REV/QA (`PRE · REA · badge de sigla · Sit.`). A **linha 1 do cabeçalho de cada grupo** mostra o nome por extenso (**Desenvolvimento / Revisão / Qualidade**); a linha 2 e os dados seguem com DEV/REV/QA / a sigla. O **bloco esquerdo** (Checkbox · Prioridade · Situação · Código · Descrição) **não tem divisória vertical** — a 1ª borda aparece só em Descrição → DEV; as bordas entre/dentro dos grupos DEV/REV/QA continuam. Colunas compactadas (só "Descrição" cresce, com o mesmo `px: 0.5` das demais), **linhas mais baixas** (padding vertical reduzido) e **Situação / PRE / REA / badges centralizados**. **Prioridade** é um badge (componente `BadgeTexto`, mesmo visual do `BadgeSigla`): verde "Baixa" nas linhas normais, laranja "Tag" nas linhas de agrupamento por tag. **Situação** (componente `EtiquetaFixa`): "Pendente" vermelho nas normais, "Tag" laranja nas de agrupamento por tag. A regra **"–" no badge / "Nenhuma" (preto) na situação do grupo** vale para **qualquer linha** cujo grupo DEV/REV/QA não tenha tempo do colaborador (`reaSegundos === 0`) — antes só as linhas de agrupamento por tag; nesses grupos PRE/REA ficam "00h". Nada é editável nem persistido. PRE/REA usam a largura do badge e exibem `00h` (2 dígitos) com `Tooltip` da duração completa; PRE sempre `00h`; o **cabeçalho** de PRE/REA tem `Tooltip` ("Tempo previsto" / "Tempo realizado"). Quando **REA > 0**, o valor fica na cor da Capacidade (`primary.main`) e em negrito. A coluna **Código** é **centralizada** e recebe **zeros à esquerda dinâmicos** — preenchida até o nº de dígitos do maior código do sprint (linhas sem código ficam "—"). O badge de sigla é o componente `BadgeSigla` (sigla colorida, cantos retos), o mesmo do card de colaboradores. Um botão **"Buscar por descrição"** no header (antes do "Informações") abre um filtro **local, client-side** sobre a lista já carregada (colunas Código + Descrição) — sem nova chamada à API e sem trocar de tela, filtrando só a grid de tarefas; difere do Relatório (que abre uma busca própria) e do Gantt (que reconsulta `GET /api/gant?termo=`).
+
+> Melhoria futura (não implementada): a planilha de referência tem também um gráfico de pizza Concluído/Pendente e um gráfico de barras por colaborador.
 
 ### Decisões desta camada
 
 - **Minimal APIs**, um arquivo por grupo de endpoints em `Endpoints/` (`Map*Endpoints(this WebApplication app, ...)`), DTOs em `Dtos/` — nenhuma duplicação de lógica: todo endpoint delega para `TogglReport.Nucleo`.
+- **Helpers de endpoint extraídos pela auditoria de 2026-09-07** (não são rotas): `ValidacaoDatas.Tenta` (parse de datas + `fim < inicio`, 7 handlers — `GET /api/gant` fora, só faz parse) e `TratamentoIo.Executar` (converte `IOException`/`UnauthorizedAccessException` em `500` com mensagem limpa, 9 sites — `DadosEndpoints` fora, o `try` de lá é mais complexo). Ver `CLAUDE.md` §4.2/§7 item 29.
 - **Stateless entre requisições**: a API nunca mantém os registros baixados em memória entre chamadas — toda leitura de relatório/busca **relê o `TogglRelatorioData.ini`**. Isso é o que permite reaproveitar o cache do jeito mais simples possível, sem sessão.
 - **CORS liberado** (`AllowAnyOrigin/Header/Method`) — uso exclusivamente local, sem dado sensível trafegando entre origens que importe proteger.
 - **Enums serializados como string** (`JsonStringEnumConverter`) — `status` de `/api/consultas` aparece como texto no JSON, não como número.
@@ -311,20 +347,25 @@ toggl-report-back/
  ├─ TogglReport.Api/                    # Web API
  │   ├─ Program.cs
  │   ├─ Dtos/                           # um record por request/response
- │   ├─ Endpoints/                      # um Map*Endpoints por grupo de rotas (inclui GantEndpoints)
+ │   ├─ Endpoints/                      # um Map*Endpoints por grupo de rotas (inclui GantEndpoints) + helpers internos ValidacaoDatas (TryParse + fim<inicio) e TratamentoIo (500 em IOException/UnauthorizedAccessException)
  │   ├─ Properties/launchSettings.json
  │   └─ wwwroot/                        # só o ícone do Swagger (images/) e seus favicons
  └─ TogglReport.Nucleo/                 # comum aos dois acima
-     ├─ Configuracao/                   # inclui ConfiguracaoGant/CarregadorConfiguracaoGantIni
+     ├─ Configuracao/                   # inclui ConfiguracaoGant/CarregadorConfiguracaoGantIni + Sprint/ServicoSprints/CarregadorSprintsIni/ConfiguracaoCategoriasSprint/CarregadorConfiguracaoCategoriasSprintIni + helpers ServicoChaves/DiasUteis/Agrupamento
      ├─ Toggl/
      ├─ Relatorios/
      ├─ Consultas/
-     └─ Gant/                          # ServicoGant + LinhaGant/CelulaGant/ResultadoGant
+     ├─ Gant/                          # ServicoGant + LinhaGant/CelulaGant/ResultadoGant
+     └─ Sprint/                        # ServicoSprint + CabecalhoSprint/BlocoCategoriaSprint/LinhaTarefaSprint/LinhaColaboradorSprint/ResultadoSprint (namespace RelatorioToggl.Sprints)
 ```
 
 ## Segurança
 
-`TogglUsuarios.ini` e `TogglRelatorioData.ini` (gerados por **cada** executável em sua própria pasta `dados/`) guardam API Tokens **criptografados** (AES; chave via `TOGGL_CHAVE_CRIPTOGRAFIA`, com um padrão embutido se não configurada — proteção básica, ver `CLAUDE.md` §2.4) — o segundo também o retorno cru das consultas, esse não criptografado. `TogglRelatorioParametros.ini` (agrupamento/tags/período) não tem dado sensível. Não versione nenhum desses arquivos (já estão no `.gitignore`, em qualquer profundidade de pasta) e trate os que têm token como segredo mesmo assim.
+`TogglUsuarios.ini`, `TogglRelatorioData.ini`, `TogglGantData.ini` e `TogglSprintData.ini` (gerados por **cada** executável em sua própria pasta `dados/`) guardam API Tokens **criptografados** (AES; chave via `CHAVE_CRIPTOGRAFIA` — renomeada de `TOGGL_CHAVE_CRIPTOGRAFIA` em 2026-09-07, quando a chave padrão embutida também foi rotacionada: tokens gravados sem env var configurada precisam ser reinseridos; ver `CLAUDE.md` §2.4) — os três de cache também o retorno cru das consultas, esse não criptografado. `TogglRelatorioParametros.ini` (agrupamento/tags/período) e os dois demais do Sprint (`TogglSprints.ini`, `TogglSprintCategorias.ini`) não têm dado sensível. Não versione nenhum desses arquivos (já estão no `.gitignore`/`.dockerignore`, em qualquer profundidade de pasta) e trate os que têm token como segredo mesmo assim.
+
+### Variáveis de ambiente em dev (Visual Studio)
+
+As três env vars da API — `AUTH__USUARIO`, `AUTH__SENHA` (autenticação Basic opcional, ambas vazias = sem autenticação) e `CHAVE_CRIPTOGRAFIA` (chave de criptografia dos tokens, vazia = chave padrão embutida) — vão no bloco `environmentVariables` de `TogglReport.Api/Properties/launchSettings.json`, já presentes lá com valor vazio como template. Pela IDE: **Propriedades do projeto → Depurar → "Abrir interface do usuário de perfis de inicialização de depuração" → Variáveis de ambiente**. `AUTH:*` são lidas via `IConfiguration` (o provider de env vars mapeia `AUTH__USUARIO` → `AUTH:USUARIO`); `CHAVE_CRIPTOGRAFIA` é lida direto via `Environment.GetEnvironmentVariable`. Como `launchSettings.json` é versionado, para guardar valores reais sem commitar: `git update-index --skip-worktree toggl-report-back/TogglReport.Api/Properties/launchSettings.json` ou defina as variáveis no ambiente do Windows (o VS herda). Fora de dev, o `docker-compose.yml` lê as três do `.env` da raiz (gitignored; `.env.example` é o template).
 
 ## Limitações conhecidas
 

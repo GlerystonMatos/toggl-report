@@ -558,13 +558,22 @@ uma nova revisão só com a env var alterada.
 nada aqui mexe em Terraform, ver `CLAUDE.md` §4.8):
 ```bash
 gcloud run services update toggl-report-back --region=us-central1 --project=SEU_PROJETO_APP_ID \
-  --set-env-vars=AUTH__USUARIO=SEU_USUARIO,AUTH__SENHA=SUA_SENHA,TOGGL_CHAVE_CRIPTOGRAFIA=SUA_CHAVE
+  --set-env-vars=AUTH__USUARIO=SEU_USUARIO,AUTH__SENHA=SUA_SENHA,CHAVE_CRIPTOGRAFIA=SUA_CHAVE
 ```
 `AUTH__USUARIO`/`AUTH__SENHA` ligam o gate de autenticação (sem os dois, a
-API fica como está hoje); `TOGGL_CHAVE_CRIPTOGRAFIA` é opcional — sem ela,
+API fica como está hoje); `CHAVE_CRIPTOGRAFIA` é opcional — sem ela,
 os tokens do Toggl nos `.ini` ainda são criptografados, só que com uma chave
 padrão embutida no código-fonte (proteção mínima). Escolha os três valores
 você mesmo, não são gerados por nenhum comando aqui.
+
+> **Rename `TOGGL_CHAVE_CRIPTOGRAFIA` → `CHAVE_CRIPTOGRAFIA` (2026-09-07):** se
+> você **já tinha** a env var antiga setada neste serviço, renomeie mantendo o
+> mesmo valor —
+> `gcloud run services update toggl-report-back --region=us-central1 --project=SEU_PROJETO_APP_ID --update-env-vars=CHAVE_CRIPTOGRAFIA=SUA_CHAVE --remove-env-vars=TOGGL_CHAVE_CRIPTOGRAFIA`.
+> Se nunca setou, nada a fazer. Nenhum `.tf` referencia essa variável, então
+> não há `terraform apply`. O `dados/` no Cloud Run é efêmero (`min_instance_count = 0`,
+> sem volume): tokens já são reinseridos a cada cold start, então a rotação da
+> chave padrão embutida feita nesse rename não muda nada aqui.
 
 ```bash
 gcloud run services update toggl-report-back --region=us-central1 --project=SEU_PROJETO_APP_ID \

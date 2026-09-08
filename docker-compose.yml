@@ -20,7 +20,7 @@ services:
             - Kestrel__Certificates__Default__Path=/app/certificado/certificado.pfx
             - AUTH__USUARIO=${AUTH__USUARIO}
             - AUTH__SENHA=${AUTH__SENHA}
-            - TOGGL_CHAVE_CRIPTOGRAFIA=${TOGGL_CHAVE_CRIPTOGRAFIA}
+            - CHAVE_CRIPTOGRAFIA=${CHAVE_CRIPTOGRAFIA}
         healthcheck:
             test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
             interval: 30s

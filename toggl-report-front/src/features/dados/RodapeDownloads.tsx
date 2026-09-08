@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
+import { Stack } from '@mui/material';
 import { baixarDados } from '../../api/dadosApi';
+import { CreditoApp } from '../../components/CreditoApp';
 import DownloadIcon from '@mui/icons-material/Download';
-import { Stack, Typography } from '@mui/material';
 import { useNotificacao } from '../../hooks/useNotificacao';
 import { BotaoComCarregamento } from '../../components/BotaoComCarregamento';
 
@@ -28,14 +29,13 @@ export function RodapeDownloads(): ReactNode {
             sx={{
                 alignItems: { xs: 'flex-start', sm: 'center' },
                 justifyContent: 'space-between',
-                mt: 4,
+                mt: 2,
                 pt: 2,
+                paddingTop: 0.5,
                 borderTop: 1,
                 borderColor: 'divider',
             }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: '"Montserrat", sans-serif' }}>
-                Toggl Report – Por Gleryston Matos – v{__APP_VERSION__}
-            </Typography>
+            <CreditoApp sx={{ fontWeight: 700 }} />
             <BotaoComCarregamento
                 size="small"
                 startIcon={<DownloadIcon />}

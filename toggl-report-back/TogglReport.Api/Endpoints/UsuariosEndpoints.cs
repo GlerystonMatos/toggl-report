@@ -58,14 +58,11 @@ public static class UsuariosEndpoints
             ConfiguracaoUsuario usuario = new() { Chave = chave, NomeExibicao = request.NomeExibicao, TokenApi = request.TokenApi, Sigla = request.Sigla, Cor = request.Cor, Selecionado = request.Selecionado };
             configuracao.Usuarios.Add(usuario);
 
-            try
-            {
-                CarregadorConfiguracaoIni.Salvar(caminhoConfiguracao, caminhoUsuarios, configuracao);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                return Results.Problem("Não foi possível salvar a configuração.", statusCode: 500);
-            }
+            IResult? erroPersistencia = TratamentoIo.Executar(
+                () => CarregadorConfiguracaoIni.Salvar(caminhoConfiguracao, caminhoUsuarios, configuracao),
+                "Não foi possível salvar a configuração.");
+            if (erroPersistencia is not null)
+                return erroPersistencia;
 
             return Results.Created($"/api/usuarios/{chave}",
                 new UsuarioResumoDto(chave, usuario.NomeExibicao, ServicoUsuarios.MascararToken(usuario.TokenApi), usuario.Sigla, usuario.Cor, usuario.Selecionado));
@@ -116,14 +113,11 @@ public static class UsuariosEndpoints
             if (request.Selecionado is not null)
                 usuario.Selecionado = request.Selecionado.Value;
 
-            try
-            {
-                CarregadorConfiguracaoIni.Salvar(caminhoConfiguracao, caminhoUsuarios, configuracao);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                return Results.Problem("Não foi possível salvar a configuração.", statusCode: 500);
-            }
+            IResult? erroPersistencia = TratamentoIo.Executar(
+                () => CarregadorConfiguracaoIni.Salvar(caminhoConfiguracao, caminhoUsuarios, configuracao),
+                "Não foi possível salvar a configuração.");
+            if (erroPersistencia is not null)
+                return erroPersistencia;
 
             return Results.Ok(new UsuarioResumoDto(usuario.Chave, usuario.NomeExibicao, ServicoUsuarios.MascararToken(usuario.TokenApi), usuario.Sigla, usuario.Cor, usuario.Selecionado));
         })
@@ -138,14 +132,11 @@ public static class UsuariosEndpoints
 
             configuracao.Usuarios.Remove(usuario);
 
-            try
-            {
-                CarregadorConfiguracaoIni.Salvar(caminhoConfiguracao, caminhoUsuarios, configuracao);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                return Results.Problem("Não foi possível salvar a configuração.", statusCode: 500);
-            }
+            IResult? erroPersistencia = TratamentoIo.Executar(
+                () => CarregadorConfiguracaoIni.Salvar(caminhoConfiguracao, caminhoUsuarios, configuracao),
+                "Não foi possível salvar a configuração.");
+            if (erroPersistencia is not null)
+                return erroPersistencia;
 
             return Results.NoContent();
         })

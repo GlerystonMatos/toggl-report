@@ -30,8 +30,6 @@ public static class CarregadorUsuariosIni
 
     public static void Salvar(string caminho, List<ConfiguracaoUsuario> usuarios)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(caminho)!);
-
         StringBuilder sb = new();
 
         foreach (ConfiguracaoUsuario usuario in usuarios)
@@ -45,7 +43,7 @@ public static class CarregadorUsuariosIni
             sb.AppendLine();
         }
 
-        File.WriteAllText(caminho, sb.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        AnalisadorIni.Escrever(caminho, sb.ToString());
     }
 
     private static List<ConfiguracaoUsuario> ExtrairUsuarios(Dictionary<string, Dictionary<string, string>> secoes)

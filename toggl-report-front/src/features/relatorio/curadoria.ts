@@ -2,7 +2,8 @@ import type { LinhaDescricao } from '../../api/tipos';
 
 export interface LinhaDescricaoExibicao {
     chave: string;
-    texto: string;
+    descricao: string;
+    tag: string;
     segundos: number;
 }
 
@@ -23,7 +24,8 @@ export function curarPorDescricao(linhas: LinhaDescricao[]): LinhaDescricaoExibi
 
     return [...doTel, ...demais].map((item) => ({
         chave: `${item.ehTel ? 'tel' : 'outro'}-${item.indice}`,
-        texto: item.ehTel ? item.linha.descricao : `(${item.linha.tag ?? 'sem tag'}) ${item.linha.descricao}`,
+        descricao: item.linha.descricao,
+        tag: item.linha.tag ?? '',
         segundos: item.linha.segundos,
     }));
 }

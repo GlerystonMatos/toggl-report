@@ -10,6 +10,12 @@ public static class CaminhosDados
 
     private const string NomeArquivoUsuarios = "TogglUsuarios.ini";
 
+    private const string NomeArquivoSprints = "TogglSprints.ini";
+
+    private const string NomeArquivoCategoriasSprint = "TogglSprintCategorias.ini";
+
+    private const string NomeArquivoCacheSprint = "TogglSprintData.ini";
+
     private const string NomeArquivoCache = "TogglRelatorioData.ini";
 
     private const string NomeArquivoCacheAntigo = "ToggleData.ini";
@@ -29,6 +35,15 @@ public static class CaminhosDados
 
     public static string CaminhoUsuarios(string diretorioBase) =>
         Path.Combine(PastaDados(diretorioBase), NomeArquivoUsuarios);
+
+    public static string CaminhoSprints(string diretorioBase) =>
+        Path.Combine(PastaDados(diretorioBase), NomeArquivoSprints);
+
+    public static string CaminhoCategoriasSprint(string diretorioBase) =>
+        Path.Combine(PastaDados(diretorioBase), NomeArquivoCategoriasSprint);
+
+    public static string CaminhoCacheSprint(string diretorioBase) =>
+        Path.Combine(PastaDados(diretorioBase), NomeArquivoCacheSprint);
 
     public static string CaminhoCache(string diretorioBase) =>
         CaminhoComMigracao(diretorioBase, NomeArquivoCache, NomeArquivoCacheAntigo);

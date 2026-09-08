@@ -7,14 +7,17 @@ import type { Agrupamento, RelatorioUsuario } from '../../api/tipos';
 
 import {
     Chip,
-    List,
     Stack,
+    Table,
     Divider,
     Checkbox,
-    ListItem,
+    TableRow,
+    TableBody,
+    TableCell,
+    TableHead,
     Accordion,
     Typography,
-    ListItemText,
+    TableContainer,
     AccordionDetails,
     AccordionSummary,
 } from '@mui/material';
@@ -27,6 +30,13 @@ interface RelatorioUsuarioCardProps {
     selecionados: Set<string>;
     onAlternarSelecao: (chave: string) => void;
 }
+
+const CELULA_TAG = {
+    maxWidth: 160,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+} as const;
 
 export function RelatorioUsuarioCard({
     usuario,
@@ -42,6 +52,7 @@ export function RelatorioUsuarioCard({
     const linhasDescricao = mostraPorDescricao ? curarPorDescricao(usuario.porDescricao) : [];
     const linhasTag = mostraPorTag ? ordenarPorTag(usuario.porTag) : [];
     const temEmAndamento = usuario.emAndamento.length > 0;
+    const semDados = linhasDescricao.length === 0 && linhasTag.length === 0;
 
     const chaveDescricao = (chaveLinha: string): string => `${usuario.nomeExibicao}::descricao::${chaveLinha}`;
     const chaveTag = (tag: string): string => `${usuario.nomeExibicao}::tag::${tag}`;
@@ -50,7 +61,9 @@ export function RelatorioUsuarioCard({
         <Accordion expanded={expandido} onChange={onAlternar} disableGutters>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Stack direction="row" spacing={2} sx={{ alignItems: 'center', width: '100%', pr: 2, flexWrap: 'wrap' }}>
-                    <Typography sx={{ fontWeight: 600, flexGrow: 1, minWidth: 0 }}>{usuario.nomeExibicao}</Typography>
+                    <Typography sx={{ fontWeight: 600, color: 'primary.main', flexGrow: 1, minWidth: 0 }}>
+                        {usuario.nomeExibicao}
+                    </Typography>
                     <Chip
                         size="small"
                         color="primary"
@@ -60,93 +73,88 @@ export function RelatorioUsuarioCard({
             </AccordionSummary>
             <AccordionDetails>
                 <Stack spacing={2}>
-                    {mostraPorDescricao ? (
-                        <Stack spacing={1}>
-                            <Typography variant="subtitle2" color="text.secondary">
-                                Por descrição
-                            </Typography>
-                            {linhasDescricao.length === 0 ? (
-                                <Typography variant="body2" color="text.secondary">
-                                    (nenhum dado)
-                                </Typography>
-                            ) : (
-                                <List dense disablePadding>
+                    {semDados ? (
+                        <Typography variant="body2" color="text.secondary">
+                            (nenhum dado)
+                        </Typography>
+                    ) : (
+                        <TableContainer>
+                            <Table size="small" sx={{ '& th, & td': { py: 0 } }}>
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell sx={{ width: '1%', px: 0.5, py: 0.25 }} />
+                                        <TableCell sx={{ py: 0.25 }}>Descrição</TableCell>
+                                        <TableCell sx={{ py: 0.25, whiteSpace: 'nowrap' }}>Tag</TableCell>
+                                        <TableCell align="right" sx={{ py: 0.25, whiteSpace: 'nowrap' }}>Tempo</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
                                     {linhasDescricao.map((linha) => {
                                         const chave = chaveDescricao(linha.chave);
                                         const selecionado = selecionados.has(chave);
                                         return (
-                                            <ListItem key={linha.chave} disableGutters sx={{ pl: 0 }}>
-                                                <Checkbox
-                                                    size="small"
-                                                    checked={selecionado}
-                                                    onChange={() => onAlternarSelecao(chave)}
-                                                    sx={{ p: 0.5, mr: 0.5 }} />
-                                                <ListItemText
-                                                    primary={linha.texto}
-                                                    sx={{ textDecoration: selecionado ? 'line-through' : 'none' }} />
-                                                <Typography variant="body2" sx={{ whiteSpace: 'nowrap', pl: 2 }}>
+                                            <TableRow key={`descricao-${linha.chave}`} hover>
+                                                <TableCell sx={{ width: '1%', px: 0.5 }}>
+                                                    <Checkbox
+                                                        size="small"
+                                                        checked={selecionado}
+                                                        onChange={() => onAlternarSelecao(chave)}
+                                                        sx={{ p: 0.25 }} />
+                                                </TableCell>
+                                                <TableCell
+                                                    sx={{ textDecoration: selecionado ? 'line-through' : 'none' }}>
+                                                    {linha.descricao}
+                                                </TableCell>
+                                                <TableCell sx={CELULA_TAG}>{linha.tag}</TableCell>
+                                                <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                                                     {formatarDuracao(linha.segundos)}
-                                                </Typography>
-                                            </ListItem>
+                                                </TableCell>
+                                            </TableRow>
                                         );
                                     })}
-                                </List>
-                            )}
-                        </Stack>
-                    ) : undefined}
-
-                    {mostraPorDescricao && mostraPorTag ? <Divider /> : undefined}
-
-                    {mostraPorTag ? (
-                        <Stack spacing={1}>
-                            <Typography variant="subtitle2" color="text.secondary">
-                                Por tag
-                            </Typography>
-                            {linhasTag.length === 0 ? (
-                                <Typography variant="body2" color="text.secondary">
-                                    (nenhum dado)
-                                </Typography>
-                            ) : (
-                                <List dense disablePadding>
                                     {linhasTag.map((linha) => {
                                         const chave = chaveTag(linha.tag);
                                         const selecionado = selecionados.has(chave);
                                         return (
-                                            <ListItem key={linha.tag} disableGutters sx={{ pl: 0 }}>
-                                                <Checkbox
-                                                    size="small"
-                                                    checked={selecionado}
-                                                    onChange={() => onAlternarSelecao(chave)}
-                                                    sx={{ p: 0.5, mr: 0.5 }} />
-                                                <ListItemText
-                                                    primary={linha.tag}
-                                                    sx={{ textDecoration: selecionado ? 'line-through' : 'none' }} />
-                                                <Typography variant="body2" sx={{ whiteSpace: 'nowrap', pl: 2 }}>
+                                            <TableRow key={`tag-${linha.tag}`} hover>
+                                                <TableCell sx={{ width: '1%', px: 0.5 }}>
+                                                    <Checkbox
+                                                        size="small"
+                                                        checked={selecionado}
+                                                        onChange={() => onAlternarSelecao(chave)}
+                                                        sx={{ p: 0.25 }} />
+                                                </TableCell>
+                                                <TableCell>Agrupado por TAG</TableCell>
+                                                <TableCell
+                                                    sx={{
+                                                        ...CELULA_TAG,
+                                                        textDecoration: selecionado ? 'line-through' : 'none',
+                                                    }}>
+                                                    {linha.tag}
+                                                </TableCell>
+                                                <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                                                     {formatarDuracao(linha.segundos)}
-                                                </Typography>
-                                            </ListItem>
+                                                </TableCell>
+                                            </TableRow>
                                         );
                                     })}
-                                </List>
-                            )}
-                        </Stack>
-                    ) : undefined}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    )}
 
                     {temEmAndamento ? (
                         <>
                             <Divider />
-                            <Stack spacing={1}>
+                            <Stack spacing={0.5}>
                                 <Typography variant="subtitle2" color="text.secondary">
                                     Em andamento
                                 </Typography>
-                                <List dense disablePadding>
-                                    {usuario.emAndamento.map((registro) => (
-                                        <ListItem key={registro.id} disableGutters>
-                                            <ListItemText
-                                                primary={`"${registro.description?.trim() || '(sem descrição)'}" (iniciado às ${formatarInicioLocal(registro.start)})`} />
-                                        </ListItem>
-                                    ))}
-                                </List>
+                                {usuario.emAndamento.map((registro) => (
+                                    <Typography key={registro.id} variant="body2">
+                                        {`"${registro.description?.trim() || '(sem descrição)'}" (iniciado às ${formatarInicioLocal(registro.start)})`}
+                                    </Typography>
+                                ))}
                             </Stack>
                         </>
                     ) : undefined}

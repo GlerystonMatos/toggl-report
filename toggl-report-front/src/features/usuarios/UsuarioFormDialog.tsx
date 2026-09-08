@@ -18,6 +18,8 @@ import {
     DialogContent,
 } from '@mui/material';
 
+const COR_PADRAO_USUARIO = '#5B82F6';
+
 interface UsuarioFormDialogProps {
     aberto: boolean;
     usuarioEmEdicao: UsuarioResumo | null;
@@ -38,7 +40,7 @@ export function UsuarioFormDialog({
     const { criar, editar, validar } = useUsuarios();
     const [validando, setValidando] = useState(false);
     const [sigla, setSigla] = useState(usuarioEmEdicao?.sigla ?? '');
-    const [cor, setCor] = useState(usuarioEmEdicao?.cor ?? '#5B82F6');
+    const [cor, setCor] = useState(usuarioEmEdicao?.cor ?? COR_PADRAO_USUARIO);
     const [avisoSemValidacao, setAvisoSemValidacao] = useState<string | null>(null);
     const [resultadoValidacao, setResultadoValidacao] = useState<boolean | null>(null);
     const [nomeExibicao, setNomeExibicao] = useState(usuarioEmEdicao?.nomeExibicao ?? '');
@@ -48,7 +50,7 @@ export function UsuarioFormDialog({
             setNomeExibicao(usuarioEmEdicao?.nomeExibicao ?? '');
             setTokenApi('');
             setSigla(usuarioEmEdicao?.sigla ?? '');
-            setCor(usuarioEmEdicao ? usuarioEmEdicao.cor : '#5B82F6');
+            setCor(usuarioEmEdicao ? usuarioEmEdicao.cor : COR_PADRAO_USUARIO);
             setResultadoValidacao(null);
             setAvisoSemValidacao(null);
         }
@@ -58,7 +60,7 @@ export function UsuarioFormDialog({
         setNomeExibicao('');
         setTokenApi('');
         setSigla('');
-        setCor('#5B82F6');
+        setCor(COR_PADRAO_USUARIO);
         setResultadoValidacao(null);
         setAvisoSemValidacao(null);
         onFechar();

@@ -1,7 +1,10 @@
 import { useState } from 'react';
+import { CORES } from '../../theme';
 import type { FormEvent, ReactNode } from 'react';
+import { CreditoApp } from '../../components/CreditoApp';
+import { Alert, Box, Paper, Stack, TextField } from '@mui/material';
+import { MarcaTogglReport } from '../../components/MarcaTogglReport';
 import { BotaoComCarregamento } from '../../components/BotaoComCarregamento';
-import { Alert, Box, Paper, Stack, TextField, Typography } from '@mui/material';
 
 interface LoginScreenProps {
     entrando: boolean;
@@ -25,28 +28,12 @@ export function LoginScreen({ entrando, erro, onEntrar }: LoginScreenProps): Rea
                 minHeight: '100vh',
                 alignItems: 'center',
                 justifyContent: 'center',
-                bgcolor: '#1A1A32',
+                bgcolor: CORES.navbarFundo,
             }}>
             <Paper variant="outlined" component="form" onSubmit={aoSubmeter} sx={{ p: 4, width: 360 }}>
                 <Stack spacing={2}>
                     <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', justifyContent: 'center', mb: '12px !important', mt: '-5px !important' }}>
-                        <Box
-                            component="img"
-                            src="/toggl-report.png"
-                            alt=""
-                            sx={{ height: 32, width: 32 }} />
-                        <Typography variant="h6" component="div">
-                            <Box
-                                component="span"
-                                sx={{ fontFamily: '"Montserrat", sans-serif', fontWeight: 600, letterSpacing: '0.08em', color: 'text.primary' }}>
-                                TOGGL
-                            </Box>{' '}
-                            <Box
-                                component="span"
-                                sx={{ fontFamily: '"Montserrat", sans-serif', fontWeight: 300, letterSpacing: '0.08em', color: 'text.primary' }}>
-                                REPORT
-                            </Box>
-                        </Typography>
+                        <MarcaTogglReport corTexto="text.primary" />
                     </Stack>
                     <TextField
                         label="Usuário"
@@ -70,12 +57,7 @@ export function LoginScreen({ entrando, erro, onEntrar }: LoginScreenProps): Rea
                         disabled={!usuario || !senha}>
                         Entrar
                     </BotaoComCarregamento>
-                    <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ textAlign: 'center', fontSize: '0.80rem', fontFamily: '"Montserrat", sans-serif' }}>
-                        Toggl Report – Por Gleryston Matos – v{__APP_VERSION__}
-                    </Typography>
+                    <CreditoApp sx={{ textAlign: 'center' }} />
                 </Stack>
             </Paper>
         </Box>

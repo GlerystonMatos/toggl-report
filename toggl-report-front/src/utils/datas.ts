@@ -25,6 +25,11 @@ export function formatarData(iso: string): string {
     return `${dia}/${mes}/${ano}`;
 }
 
+export function formatarDiaCurto(dia: string): string {
+    const [, mes, diaDoMes] = dia.split('-');
+    return `${diaDoMes}/${mes}`;
+}
+
 export function formatarPeriodo(dataInicio: string, dataFim: string): string {
     return `${formatarData(dataInicio)} a ${formatarData(dataFim)}`;
 }

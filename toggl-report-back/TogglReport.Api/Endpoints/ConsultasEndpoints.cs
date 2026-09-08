@@ -10,11 +10,8 @@ public static class ConsultasEndpoints
     {
         app.MapPost("/api/consultas", async (ConsultarRequest request) =>
         {
-            if (!DateTime.TryParse(request.DataInicio, out DateTime inicio) || !DateTime.TryParse(request.DataFim, out DateTime fim))
-                return Results.BadRequest("Datas inválidas. Use o formato AAAA-MM-DD.");
-
-            if (fim < inicio)
-                return Results.BadRequest("A data fim não pode ser anterior à data início.");
+            if (!ValidacaoDatas.Tenta(request.DataInicio, request.DataFim, out DateTime inicio, out DateTime fim, out IResult? erroDatas))
+                return erroDatas!;
 
             ConfiguracaoApp? configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao, caminhoUsuarios);
             if (configuracao is not null)

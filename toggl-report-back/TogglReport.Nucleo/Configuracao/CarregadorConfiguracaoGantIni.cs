@@ -18,9 +18,7 @@ public static class CarregadorConfiguracaoGantIni
         {
             configuracao.DataInicio = AnalisadorIni.ObterOuNulo(geral, "DataInicio");
             configuracao.DataFim = AnalisadorIni.ObterOuNulo(geral, "DataFim");
-            configuracao.TagsSelecionadas = AnalisadorIni.ObterOuPadrao(geral, "TagsSelecionadas", "")
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .ToList();
+            configuracao.TagsSelecionadas = AnalisadorIni.DividirLista(AnalisadorIni.ObterOuPadrao(geral, "TagsSelecionadas", ""));
             configuracao.Agrupamento = AnalisadorIni.ObterOuPadrao(geral, "Agrupamento", "ambos");
         }
 
@@ -29,8 +27,6 @@ public static class CarregadorConfiguracaoGantIni
 
     public static void Salvar(string caminho, ConfiguracaoGant configuracao)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(caminho)!);
-
         StringBuilder sb = new();
 
         sb.AppendLine($"[{SecaoGeral}]");
@@ -39,6 +35,6 @@ public static class CarregadorConfiguracaoGantIni
         sb.AppendLine($"TagsSelecionadas={string.Join(",", configuracao.TagsSelecionadas)}");
         sb.AppendLine($"Agrupamento={configuracao.Agrupamento}");
 
-        File.WriteAllText(caminho, sb.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        AnalisadorIni.Escrever(caminho, sb.ToString());
     }
 }

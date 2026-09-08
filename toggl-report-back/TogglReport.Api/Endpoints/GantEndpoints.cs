@@ -20,11 +20,11 @@ public static class GantEndpoints
 
         grupo.MapPut("/parametros", (AtualizarParametrosGantRequest request) =>
         {
-            if (!DateTime.TryParse(request.DataInicio, out DateTime inicio) || !DateTime.TryParse(request.DataFim, out DateTime fim))
-                return Results.BadRequest("Datas inválidas. Use o formato AAAA-MM-DD.");
+            if (!Agrupamento.EhValido(request.Agrupamento))
+                return Results.BadRequest("Agrupamento deve ser 'descricao', 'tag' ou 'ambos'.");
 
-            if (fim < inicio)
-                return Results.BadRequest("A data fim não pode ser anterior à data início.");
+            if (!ValidacaoDatas.Tenta(request.DataInicio, request.DataFim, out DateTime inicio, out DateTime fim, out IResult? erroDatas))
+                return erroDatas!;
 
             ConfiguracaoGant configuracao = new()
             {
@@ -34,14 +34,11 @@ public static class GantEndpoints
                 Agrupamento = request.Agrupamento
             };
 
-            try
-            {
-                CarregadorConfiguracaoGantIni.Salvar(caminhoParametrosGant, configuracao);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                return Results.Problem("Não foi possível salvar os parâmetros do Gant.", statusCode: 500);
-            }
+            IResult? erroPersistencia = TratamentoIo.Executar(
+                () => CarregadorConfiguracaoGantIni.Salvar(caminhoParametrosGant, configuracao),
+                "Não foi possível salvar os parâmetros do Gant.");
+            if (erroPersistencia is not null)
+                return erroPersistencia;
 
             return Results.Ok(new ParametrosGantDto(configuracao.DataInicio, configuracao.DataFim, configuracao.TagsSelecionadas, configuracao.Agrupamento));
         })
@@ -49,11 +46,8 @@ public static class GantEndpoints
 
         grupo.MapPost("/consultas", async (ConsultarRequest request) =>
         {
-            if (!DateTime.TryParse(request.DataInicio, out DateTime inicio) || !DateTime.TryParse(request.DataFim, out DateTime fim))
-                return Results.BadRequest("Datas inválidas. Use o formato AAAA-MM-DD.");
-
-            if (fim < inicio)
-                return Results.BadRequest("A data fim não pode ser anterior à data início.");
+            if (!ValidacaoDatas.Tenta(request.DataInicio, request.DataFim, out DateTime inicio, out DateTime fim, out IResult? erroDatas))
+                return erroDatas!;
 
             ConfiguracaoApp? configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao, caminhoUsuarios);
             if (configuracao is not null)

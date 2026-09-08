@@ -128,6 +128,44 @@ export interface AtualizarParametrosGantRequest {
     agrupamento: Agrupamento;
 }
 
+export interface Sprint {
+    chave: string;
+    nome: string;
+    horasPorDia: number;
+    dataInicio: string;
+    dataFim: string;
+}
+
+export interface CriarSprintRequest {
+    nome: string;
+    horasPorDia: number;
+    dataInicio: string;
+    dataFim: string;
+}
+
+export interface EditarSprintRequest {
+    nome?: string | null;
+    horasPorDia?: number | null;
+    dataInicio?: string | null;
+    dataFim?: string | null;
+}
+
+export interface CategoriasSprint {
+    dev: string[];
+    rev: string[];
+    qa: string[];
+    agrupamento: Agrupamento;
+    tagsDetalhadas: string[];
+}
+
+export interface AtualizarCategoriasSprintRequest {
+    dev: string[];
+    rev: string[];
+    qa: string[];
+    agrupamento: Agrupamento;
+    tagsDetalhadas: string[];
+}
+
 export interface CelulaGant {
     usuarioChave: string;
     nomeExibicao: string;
@@ -148,4 +186,50 @@ export interface LinhaGant {
 export interface ResultadoGant {
     dias: string[];
     linhas: LinhaGant[];
+}
+
+export interface BlocoCategoriaSprint {
+    preHoras: number;
+    reaSegundos: number;
+}
+
+export interface LinhaTarefaSprint {
+    codigo: string;
+    descricao: string;
+    nomeExibicao: string;
+    sigla: string;
+    cor: string;
+    agrupada: boolean;
+    dev: BlocoCategoriaSprint;
+    rev: BlocoCategoriaSprint;
+    qa: BlocoCategoriaSprint;
+}
+
+export interface CabecalhoSprint {
+    nome: string;
+    horasPorDia: number;
+    diasUteis: number;
+    margem: number;
+    dataInicio: string;
+    dataFim: string;
+    ct: number;
+    td: number;
+    tarefasPendentes: number;
+    tarefasConcluidas: number;
+}
+
+export interface LinhaColaboradorSprint {
+    nomeExibicao: string;
+    sigla: string;
+    cor: string;
+    td: number;
+    segundosRealizados: number;
+    tarefasPendentes: number;
+    tarefasConcluidas: number;
+}
+
+export interface ResultadoSprint {
+    cabecalho: CabecalhoSprint;
+    tarefas: LinhaTarefaSprint[];
+    colaboradores: LinhaColaboradorSprint[];
 }

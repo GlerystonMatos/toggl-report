@@ -12,21 +12,7 @@ public static class ServicoUsuarios
         => usuarios.Any(u => u != ignorar && u.Sigla.Length > 0 && u.Sigla.Equals(sigla, StringComparison.OrdinalIgnoreCase));
 
     public static string GerarChaveUnica(string nome, List<ConfiguracaoUsuario> usuariosExistentes)
-    {
-        string chaveBase = new string(nome.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
-        if (string.IsNullOrEmpty(chaveBase))
-            chaveBase = "usuario";
-
-        string chave = chaveBase;
-        int sufixo = 1;
-        while (usuariosExistentes.Any(u => u.Chave.Equals(chave, StringComparison.OrdinalIgnoreCase)))
-        {
-            sufixo++;
-            chave = $"{chaveBase}{sufixo}";
-        }
-
-        return chave;
-    }
+        => ServicoChaves.GerarChaveUnica(nome, usuariosExistentes.Select(u => u.Chave), "usuario");
 
     public static string MascararToken(string token)
     {

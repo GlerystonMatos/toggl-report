@@ -19,14 +19,11 @@ public static class ConfiguracaoEndpoints
 
         grupo.MapPut("/", (AtualizarParametrosRequest request) =>
         {
-            if (request.Agrupamento is not ("descricao" or "tag" or "ambos"))
+            if (!Agrupamento.EhValido(request.Agrupamento))
                 return Results.BadRequest("Agrupamento deve ser 'descricao', 'tag' ou 'ambos'.");
 
-            if (!DateTime.TryParse(request.DataInicio, out DateTime inicio) || !DateTime.TryParse(request.DataFim, out DateTime fim))
-                return Results.BadRequest("Datas inválidas. Use o formato AAAA-MM-DD.");
-
-            if (fim < inicio)
-                return Results.BadRequest("A data fim não pode ser anterior à data início.");
+            if (!ValidacaoDatas.Tenta(request.DataInicio, request.DataFim, out DateTime inicio, out DateTime fim, out IResult? erroDatas))
+                return erroDatas!;
 
             ConfiguracaoApp configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao, caminhoUsuarios) ?? new ConfiguracaoApp();
             configuracao.AgrupamentoPadrao = request.Agrupamento;
@@ -34,14 +31,11 @@ public static class ConfiguracaoEndpoints
             configuracao.DataInicioAnterior = inicio.ToString("yyyy-MM-dd");
             configuracao.DataFimAnterior = fim.ToString("yyyy-MM-dd");
 
-            try
-            {
-                CarregadorConfiguracaoIni.Salvar(caminhoConfiguracao, caminhoUsuarios, configuracao);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                return Results.Problem("Não foi possível salvar a configuração.", statusCode: 500);
-            }
+            IResult? erroPersistencia = TratamentoIo.Executar(
+                () => CarregadorConfiguracaoIni.Salvar(caminhoConfiguracao, caminhoUsuarios, configuracao),
+                "Não foi possível salvar a configuração.");
+            if (erroPersistencia is not null)
+                return erroPersistencia;
 
             return Results.Ok(new ParametrosConfiguracaoDto(
                 configuracao.AgrupamentoPadrao, configuracao.TagsDetalhadas, configuracao.DataInicioAnterior, configuracao.DataFimAnterior));

@@ -2,14 +2,17 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { useRelatorio } from './useRelatorio';
 import { BuscaPanel } from '../busca/BuscaPanel';
+import { Alert, Box, Stack } from '@mui/material';
 import { formatarPeriodo } from '../../utils/datas';
 import SearchIcon from '@mui/icons-material/Search';
-import CloudDoneIcon from '@mui/icons-material/CloudDone';
+import { useExpansao } from '../../hooks/useExpansao';
+import { AvisoCache } from '../../components/AvisoCache';
 import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
 import { useNotificacao } from '../../hooks/useNotificacao';
 import { RelatorioUsuarioCard } from './RelatorioUsuarioCard';
-import { Alert, Box, Skeleton, Stack, Typography } from '@mui/material';
+import { CabecalhoView } from '../../components/CabecalhoView';
+import { EsqueletoCarregando } from '../../components/EsqueletoCarregando';
 import { BotaoComCarregamento } from '../../components/BotaoComCarregamento';
 
 interface RelatorioViewProps {
@@ -32,7 +35,10 @@ export function RelatorioView({
     const { notificarErro } = useNotificacao();
     const [buscaAberta, setBuscaAberta] = useState(false);
     const { relatorio, carregando, carregar } = useRelatorio();
-    const [expandido, setExpandido] = useState<Record<string, boolean>>({});
+    const { expandido, alternarUm, alternarTodos, todosExpandidos } = useExpansao(
+        relatorio ? relatorio.usuarios.map((usuario) => usuario.nomeExibicao) : [],
+        relatorio,
+    );
 
     useEffect(() => {
         carregar(dataInicio, dataFim).catch((erro: unknown) =>
@@ -40,61 +46,31 @@ export function RelatorioView({
         );
     }, [dataInicio, dataFim]);
 
-    useEffect(() => {
-        if (!relatorio) return;
-        setExpandido(Object.fromEntries(relatorio.usuarios.map((usuario) => [usuario.nomeExibicao, false])));
-    }, [relatorio]);
-
-    const todosExpandidos = relatorio !== null && relatorio.usuarios.length > 0
-        && relatorio.usuarios.every((usuario) => expandido[usuario.nomeExibicao]);
-
-    function alternarTodos(): void {
-        if (!relatorio) return;
-        const novoValor = !todosExpandidos;
-        setExpandido(Object.fromEntries(relatorio.usuarios.map((usuario) => [usuario.nomeExibicao, novoValor])));
-    }
-
     if (buscaAberta) {
         return <BuscaPanel onFechar={() => setBuscaAberta(false)} />;
     }
 
     return (
         <Stack spacing={2}>
-            <Stack
-                direction="row"
-                sx={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                <Typography variant="h6">
-                    Relatório — {formatarPeriodo(dataInicio, dataFim)}
-                </Typography>
-                <Stack direction="row" spacing={1}>
-                    <BotaoComCarregamento
-                        startIcon={<SearchIcon />}
-                        onClick={() => setBuscaAberta(true)}
-                        disabled={!relatorio}>
-                        Buscar por descrição
-                    </BotaoComCarregamento>
-                    <BotaoComCarregamento
-                        startIcon={todosExpandidos ? <UnfoldLessIcon /> : <UnfoldMoreIcon />}
-                        onClick={alternarTodos}
-                        disabled={!relatorio || relatorio.usuarios.length === 0}>
-                        {todosExpandidos ? 'Colapsar tudo' : 'Expandir tudo'}
-                    </BotaoComCarregamento>
-                    <BotaoComCarregamento onClick={onVoltar}>Voltar</BotaoComCarregamento>
-                </Stack>
-            </Stack>
+            <CabecalhoView titulo={`Relatório — ${formatarPeriodo(dataInicio, dataFim)}`}>
+                <BotaoComCarregamento
+                    startIcon={<SearchIcon />}
+                    onClick={() => setBuscaAberta(true)}
+                    disabled={!relatorio}>
+                    Buscar por descrição
+                </BotaoComCarregamento>
+                <BotaoComCarregamento
+                    startIcon={todosExpandidos ? <UnfoldLessIcon /> : <UnfoldMoreIcon />}
+                    onClick={alternarTodos}
+                    disabled={!relatorio || relatorio.usuarios.length === 0}>
+                    {todosExpandidos ? 'Colapsar tudo' : 'Expandir tudo'}
+                </BotaoComCarregamento>
+                <BotaoComCarregamento onClick={onVoltar}>Voltar</BotaoComCarregamento>
+            </CabecalhoView>
 
-            {veioDoCache ? (
-                <Alert icon={<CloudDoneIcon fontSize="inherit" />} severity="info">
-                    Resultado servido do cache local (mesmo período e usuários de uma consulta anterior).
-                </Alert>
-            ) : undefined}
+            {veioDoCache ? <AvisoCache /> : undefined}
 
-            {carregando && !relatorio ? (
-                <Stack spacing={1}>
-                    <Skeleton variant="rounded" height={56} />
-                    <Skeleton variant="rounded" height={56} />
-                </Stack>
-            ) : undefined}
+            {carregando && !relatorio ? <EsqueletoCarregando /> : undefined}
 
             {relatorio && relatorio.usuarios.length === 0 ? (
                 <Alert severity="warning">Nenhum usuário com dados para este período.</Alert>
@@ -108,12 +84,7 @@ export function RelatorioView({
                             usuario={usuario}
                             agrupamento={relatorio.agrupamento}
                             expandido={expandido[usuario.nomeExibicao] ?? false}
-                            onAlternar={() =>
-                                setExpandido((atual) => ({
-                                    ...atual,
-                                    [usuario.nomeExibicao]: !atual[usuario.nomeExibicao],
-                                }))
-                            }
+                            onAlternar={() => alternarUm(usuario.nomeExibicao)}
                             selecionados={selecionados}
                             onAlternarSelecao={onAlternarSelecao} />
                     ))}

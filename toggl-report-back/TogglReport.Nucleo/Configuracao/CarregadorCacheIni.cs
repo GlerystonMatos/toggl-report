@@ -46,8 +46,6 @@ public static class CarregadorCacheIni
 
     public static void Salvar(string caminho, CacheConsulta cache)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(caminho)!);
-
         StringBuilder sb = new();
 
         sb.AppendLine($"[{SecaoGeral}]");
@@ -64,7 +62,7 @@ public static class CarregadorCacheIni
             sb.AppendLine();
         }
 
-        File.WriteAllText(caminho, sb.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        AnalisadorIni.Escrever(caminho, sb.ToString());
     }
 
     private static List<RegistroTempoDto> DesserializarRegistros(string json)

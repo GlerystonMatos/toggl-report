@@ -1,25 +1,30 @@
 import { useGant } from './useGant';
 import type { ReactNode } from 'react';
-import { formatarPeriodo } from '../../utils/datas';
+import { truncar } from '../../utils/texto';
 import SearchIcon from '@mui/icons-material/Search';
+import { FONTE_MARCA } from '../../utils/tipografia';
 import { Fragment, useEffect, useState } from 'react';
 import { formatarDuracao } from '../../utils/duracao';
-import CloudDoneIcon from '@mui/icons-material/CloudDone';
+import { useExpansao } from '../../hooks/useExpansao';
+import { AvisoCache } from '../../components/AvisoCache';
 import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { useNotificacao } from '../../hooks/useNotificacao';
+import { CabecalhoView } from '../../components/CabecalhoView';
+import { formatarDiaCurto, formatarPeriodo } from '../../utils/datas';
+import { EsqueletoCarregando } from '../../components/EsqueletoCarregando';
 import { BotaoComCarregamento } from '../../components/BotaoComCarregamento';
 
 import {
+    Box,
     Chip,
     Table,
     Alert,
     Stack,
     Tooltip,
     TableRow,
-    Skeleton,
     TextField,
     TableBody,
     TableCell,
@@ -35,17 +40,11 @@ interface GantViewProps {
     veioDoCache: boolean;
 }
 
-function formatarDiaCurto(dia: string): string {
-    const [, mes, diaDoMes] = dia.split('-');
-    return `${diaDoMes}/${mes}`;
-}
-
 export function GantView({ dataInicio, dataFim, onVoltar, veioDoCache }: GantViewProps): ReactNode {
     const { notificarErro } = useNotificacao();
     const { gant, carregando, carregar } = useGant();
     const [termoBusca, setTermoBusca] = useState('');
     const [buscaAberta, setBuscaAberta] = useState(false);
-    const [expandido, setExpandido] = useState<Record<string, boolean>>({});
     const [termoAtivo, setTermoAtivo] = useState<string | undefined>(undefined);
 
     useEffect(() => {
@@ -56,51 +55,35 @@ export function GantView({ dataInicio, dataFim, onVoltar, veioDoCache }: GantVie
         ? Array.from(new Map(gant.linhas.map((linha) => [linha.usuarioChave, linha.nomeExibicao])).entries())
         : [];
 
-    useEffect(() => {
-        if (!gant) return;
-        setExpandido(Object.fromEntries(usuariosDistintos.map(([usuarioChave]) => [usuarioChave, false])));
-    }, [gant]);
-
-    const todosExpandidos = usuariosDistintos.length > 0
-        && usuariosDistintos.every(([usuarioChave]) => expandido[usuarioChave]);
-
-    function alternarTodos(): void {
-        if (usuariosDistintos.length === 0) return;
-        const novoValor = !todosExpandidos;
-        setExpandido(Object.fromEntries(usuariosDistintos.map(([usuarioChave]) => [usuarioChave, novoValor])));
-    }
+    const { expandido, alternarUm, alternarTodos, todosExpandidos } = useExpansao(
+        usuariosDistintos.map(([usuarioChave]) => usuarioChave),
+        gant,
+    );
 
     const totalColunas = 3 + (gant?.dias.length ?? 0);
 
     return (
         <Stack spacing={2}>
-            <Stack
-                direction="row"
-                sx={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                <Typography variant="h6">
-                    Gant — {formatarPeriodo(dataInicio, dataFim)}
-                </Typography>
-                <Stack direction="row" spacing={1}>
-                    <BotaoComCarregamento
-                        startIcon={<SearchIcon />}
-                        onClick={() => {
-                            if (buscaAberta) {
-                                setTermoBusca('');
-                                setTermoAtivo(undefined);
-                            }
-                            setBuscaAberta((atual) => !atual);
-                        }}>
-                        {buscaAberta ? 'Fechar busca' : 'Buscar por descrição'}
-                    </BotaoComCarregamento>
-                    <BotaoComCarregamento
-                        startIcon={todosExpandidos ? <UnfoldLessIcon /> : <UnfoldMoreIcon />}
-                        onClick={alternarTodos}
-                        disabled={usuariosDistintos.length === 0}>
-                        {todosExpandidos ? 'Colapsar tudo' : 'Expandir tudo'}
-                    </BotaoComCarregamento>
-                    <BotaoComCarregamento onClick={onVoltar}>Voltar</BotaoComCarregamento>
-                </Stack>
-            </Stack>
+            <CabecalhoView titulo={`Gant — ${formatarPeriodo(dataInicio, dataFim)}`}>
+                <BotaoComCarregamento
+                    startIcon={<SearchIcon />}
+                    onClick={() => {
+                        if (buscaAberta) {
+                            setTermoBusca('');
+                            setTermoAtivo(undefined);
+                        }
+                        setBuscaAberta((atual) => !atual);
+                    }}>
+                    {buscaAberta ? 'Fechar busca' : 'Buscar por descrição'}
+                </BotaoComCarregamento>
+                <BotaoComCarregamento
+                    startIcon={todosExpandidos ? <UnfoldLessIcon /> : <UnfoldMoreIcon />}
+                    onClick={alternarTodos}
+                    disabled={usuariosDistintos.length === 0}>
+                    {todosExpandidos ? 'Colapsar tudo' : 'Expandir tudo'}
+                </BotaoComCarregamento>
+                <BotaoComCarregamento onClick={onVoltar}>Voltar</BotaoComCarregamento>
+            </CabecalhoView>
 
             {buscaAberta ? (
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
@@ -132,18 +115,9 @@ export function GantView({ dataInicio, dataFim, onVoltar, veioDoCache }: GantVie
                 </Stack>
             ) : undefined}
 
-            {veioDoCache ? (
-                <Alert icon={<CloudDoneIcon fontSize="inherit" />} severity="info">
-                    Resultado servido do cache local (mesmo período e usuários de uma consulta anterior).
-                </Alert>
-            ) : undefined}
+            {veioDoCache ? <AvisoCache /> : undefined}
 
-            {carregando && !gant ? (
-                <Stack spacing={1}>
-                    <Skeleton variant="rounded" height={56} />
-                    <Skeleton variant="rounded" height={56} />
-                </Stack>
-            ) : undefined}
+            {carregando && !gant ? <EsqueletoCarregando /> : undefined}
 
             {gant && gant.linhas.length === 0 ? (
                 <Alert severity="warning">
@@ -158,9 +132,9 @@ export function GantView({ dataInicio, dataFim, onVoltar, veioDoCache }: GantVie
                     <Table size="small">
                         <TableHead>
                             <TableRow>
-                                <TableCell sx={{ py: 0.5 }}>Categoria</TableCell>
-                                <TableCell sx={{ py: 0.5 }}>Descrição</TableCell>
-                                <TableCell sx={{ py: 0.5 }}>Total</TableCell>
+                                <TableCell sx={{ py: 0.25 }}>Categoria</TableCell>
+                                <TableCell sx={{ py: 0.25 }}>Descrição</TableCell>
+                                <TableCell sx={{ py: 0.25 }}>Total</TableCell>
                                 {gant.dias.map((dia) => (
                                     <TableCell
                                         key={dia}
@@ -181,14 +155,9 @@ export function GantView({ dataInicio, dataFim, onVoltar, veioDoCache }: GantVie
                                         {primeiraDoUsuario ? (
                                             <TableRow
                                                 key={`cabecalho-${linha.usuarioChave}`}
-                                                onClick={() =>
-                                                    setExpandido((atual) => ({
-                                                        ...atual,
-                                                        [linha.usuarioChave]: !atual[linha.usuarioChave],
-                                                    }))
-                                                }
+                                                onClick={() => alternarUm(linha.usuarioChave)}
                                                 sx={{ cursor: 'pointer', bgcolor: 'action.hover' }}>
-                                                <TableCell colSpan={totalColunas} sx={{ py: 0.25 }}>
+                                                <TableCell colSpan={totalColunas} sx={{ py: 0 }}>
                                                     <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
                                                         {usuarioExpandido ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
                                                         <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -200,9 +169,13 @@ export function GantView({ dataInicio, dataFim, onVoltar, veioDoCache }: GantVie
                                         ) : undefined}
                                         {usuarioExpandido ? (
                                             <TableRow>
-                                                <TableCell sx={{ py: 0.25 }}>{linha.categoria}</TableCell>
-                                                <TableCell sx={{ py: 0.25, whiteSpace: 'nowrap' }}>{linha.descricao}</TableCell>
-                                                <TableCell sx={{ py: 0.25 }}>{formatarDuracao(Math.round(linha.totalHoras * 3600))}</TableCell>
+                                                <TableCell sx={{ py: 0 }}>{linha.categoria}</TableCell>
+                                                <TableCell sx={{ py: 0, whiteSpace: 'nowrap' }}>
+                                                    <Tooltip title={linha.descricao}>
+                                                        <Box component="span">{truncar(linha.descricao, 50)}</Box>
+                                                    </Tooltip>
+                                                </TableCell>
+                                                <TableCell sx={{ py: 0 }}>{formatarDuracao(Math.round(linha.totalHoras * 3600))}</TableCell>
                                                 {gant.dias.map((dia) => {
                                                     const celulas = linha.celulasPorDia[dia];
                                                     const pintarCelula = celulas && celulas.length > 0;
@@ -226,12 +199,16 @@ export function GantView({ dataInicio, dataFim, onVoltar, veioDoCache }: GantVie
                                                                                 size="small"
                                                                                 label={celula.sigla || '?'}
                                                                                 sx={{
-                                                                                    bgcolor: celula.cor || 'action.disabledBackground',
-                                                                                    fontWeight: 600,
-                                                                                    fontSize: '0.65rem',
-                                                                                    height: 20,
-                                                                                }}
-                                                                            />
+                                                                                    py: 0.20,
+                                                                                    borderRadius: 0,
+                                                                                    fontWeight: 700,
+                                                                                    fontSize: '0.85rem',
+                                                                                    textAlign: 'center',
+                                                                                    display: 'inline-block',
+                                                                                    textTransform: 'uppercase',
+                                                                                    fontFamily: FONTE_MARCA,
+                                                                                    bgcolor: celula.cor || 'action.selected',
+                                                                                }} />
                                                                         </Tooltip>
                                                                     ))}
                                                                 </Stack>

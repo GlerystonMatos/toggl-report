@@ -1,4 +1,3 @@
-import { ErroApi } from '../api/http';
 import type { ReactNode } from 'react';
 import { Alert, Snackbar } from '@mui/material';
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
@@ -20,9 +19,6 @@ interface ContextoNotificacao {
 const Contexto = createContext<ContextoNotificacao | null>(null);
 
 export function mensagemDeErro(erro: unknown): string {
-    if (erro instanceof ErroApi) {
-        return erro.message;
-    }
     if (erro instanceof Error) {
         return erro.message;
     }

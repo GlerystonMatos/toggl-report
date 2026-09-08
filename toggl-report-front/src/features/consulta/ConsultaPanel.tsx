@@ -29,6 +29,7 @@ interface ConsultaPanelProps {
     dataFim: string;
     agrupamento?: Agrupamento;
     tagsDetalhadas?: string[];
+    categorias?: { dev: string[]; rev: string[]; qa: string[] };
     usuariosSelecionados: UsuarioResumo[];
     resultado: ConsultarResponse | null;
     consultando: boolean;
@@ -46,6 +47,7 @@ export function ConsultaPanel({
     dataFim,
     agrupamento,
     tagsDetalhadas,
+    categorias,
     usuariosSelecionados,
     resultado,
     consultando,
@@ -98,6 +100,14 @@ export function ConsultaPanel({
                         <Typography variant="body2" color="text.secondary">
                             Tags detalhadas: {tagsDetalhadas.length > 0 ? tagsDetalhadas.join(', ') : '(nenhuma)'}
                         </Typography>
+                    ) : undefined}
+                    {categorias !== undefined ? (
+                        <Stack spacing={0.25}>
+                            <Typography variant="body2" color="text.secondary">Categorias de tarefa:</Typography>
+                            <Typography variant="body2" color="text.secondary">DEV: {categorias.dev.length > 0 ? categorias.dev.join(', ') : '(nenhuma)'}</Typography>
+                            <Typography variant="body2" color="text.secondary">REV: {categorias.rev.length > 0 ? categorias.rev.join(', ') : '(nenhuma)'}</Typography>
+                            <Typography variant="body2" color="text.secondary">QA: {categorias.qa.length > 0 ? categorias.qa.join(', ') : '(nenhuma)'}</Typography>
+                        </Stack>
                     ) : undefined}
 
                     <Stack spacing={0.5}>

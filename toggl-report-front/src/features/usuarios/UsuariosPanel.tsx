@@ -7,6 +7,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import type { UsuarioResumo } from '../../api/tipos';
 import { UsuarioFormDialog } from './UsuarioFormDialog';
 import { useNotificacao } from '../../hooks/useNotificacao';
+import { CabecalhoView } from '../../components/CabecalhoView';
 import { DialogoConfirmacao } from '../../components/DialogoConfirmacao';
 import { BotaoComCarregamento } from '../../components/BotaoComCarregamento';
 
@@ -19,17 +20,11 @@ import {
     Checkbox,
     ListItem,
     IconButton,
-    Typography,
     CardContent,
     ListItemText,
 } from '@mui/material';
 
-interface UsuariosPanelProps {
-    onVoltar?: () => void;
-    onContinuar?: () => void;
-}
-
-export function UsuariosPanel({ onVoltar, onContinuar }: UsuariosPanelProps): ReactNode {
+export function UsuariosPanel(): ReactNode {
     const [dialogoAberto, setDialogoAberto] = useState(false);
     const { notificarErro, notificarSucesso } = useNotificacao();
     const { usuarios, carregando, carregar, editar, remover } = useUsuarios();
@@ -77,15 +72,14 @@ export function UsuariosPanel({ onVoltar, onContinuar }: UsuariosPanelProps): Re
         <Card variant="outlined">
             <CardContent>
                 <Stack spacing={2}>
-                    <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                        <Typography variant="h6">Usuários</Typography>
+                    <CabecalhoView titulo="Usuários">
                         <BotaoComCarregamento
                             variant="outlined"
                             startIcon={<AddIcon />}
                             onClick={abrirParaCriar}>
                             Adicionar
                         </BotaoComCarregamento>
-                    </Stack>
+                    </CabecalhoView>
 
                     {usuarios.length === 0 && !carregando ? (
                         <Alert severity="info">
@@ -128,20 +122,6 @@ export function UsuariosPanel({ onVoltar, onContinuar }: UsuariosPanelProps): Re
                             </ListItem>
                         ))}
                     </List>
-
-                    {onVoltar || onContinuar ? (
-                        <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
-                            {onVoltar ? <BotaoComCarregamento onClick={onVoltar}>Voltar</BotaoComCarregamento> : undefined}
-                            {onContinuar ? (
-                                <BotaoComCarregamento
-                                    variant="contained"
-                                    disabled={usuarios.length === 0}
-                                    onClick={onContinuar}>
-                                    Continuar
-                                </BotaoComCarregamento>
-                            ) : undefined}
-                        </Stack>
-                    ) : undefined}
                 </Stack>
             </CardContent>
 

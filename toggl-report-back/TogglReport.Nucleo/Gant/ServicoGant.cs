@@ -8,14 +8,9 @@ public static class ServicoGant
 {
     public static ResultadoGant Montar(CacheConsulta cache, List<ConfiguracaoUsuario> usuarios, DateTime inicio, DateTime fim, List<string> tagsSelecionadas, string agrupamento, string? termo = null)
     {
-        List<string> dias = new();
-        for (DateTime dia = inicio.Date; dia <= fim.Date; dia = dia.AddDays(1))
-        {
-            if (dia.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
-                continue;
-
-            dias.Add(dia.ToString("yyyy-MM-dd"));
-        }
+        List<string> dias = DiasUteis.Entre(inicio, fim)
+            .Select(dia => dia.ToString("yyyy-MM-dd"))
+            .ToList();
 
         Dictionary<string, ConfiguracaoUsuario> usuariosPorChave = usuarios.ToDictionary(u => u.Chave);
         Dictionary<string, int> ordemPorChave = usuarios

@@ -109,6 +109,9 @@ app.UseSwaggerUI(opcoes =>
 
 string caminhoConfiguracao = CaminhosDados.CaminhoConfiguracao(AppContext.BaseDirectory);
 string caminhoUsuarios = CaminhosDados.CaminhoUsuarios(AppContext.BaseDirectory);
+string caminhoSprints = CaminhosDados.CaminhoSprints(AppContext.BaseDirectory);
+string caminhoCategoriasSprint = CaminhosDados.CaminhoCategoriasSprint(AppContext.BaseDirectory);
+string caminhoCacheSprint = CaminhosDados.CaminhoCacheSprint(AppContext.BaseDirectory);
 string caminhoCache = CaminhosDados.CaminhoCache(AppContext.BaseDirectory);
 string caminhoParametrosGant = CaminhosDados.CaminhoParametrosGant(AppContext.BaseDirectory);
 string caminhoCacheGant = CaminhosDados.CaminhoCacheGant(AppContext.BaseDirectory);
@@ -121,5 +124,9 @@ app.MapRelatorioEndpoints(caminhoConfiguracao, caminhoUsuarios, caminhoCache);
 app.MapBuscaEndpoints(caminhoConfiguracao, caminhoUsuarios, caminhoCache);
 app.MapDadosEndpoints(pastaDados);
 app.MapGantEndpoints(caminhoConfiguracao, caminhoUsuarios, caminhoParametrosGant, caminhoCacheGant);
+app.MapSprintsEndpoints(caminhoSprints);
+app.MapSprintCategoriasEndpoints(caminhoCategoriasSprint);
+app.MapSprintConsultasEndpoints(caminhoConfiguracao, caminhoUsuarios, caminhoCacheSprint);
+app.MapSprintAcompanhamentoEndpoints(caminhoConfiguracao, caminhoUsuarios, caminhoSprints, caminhoCategoriasSprint, caminhoCacheSprint);
 
 app.Run();

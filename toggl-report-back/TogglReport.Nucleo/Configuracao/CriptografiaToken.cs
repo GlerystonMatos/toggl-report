@@ -7,10 +7,10 @@ public static class CriptografiaToken
 {
     private const string Prefixo = "enc:";
 
-    private const string ChaveEnvVar = "TOGGL_CHAVE_CRIPTOGRAFIA";
+    private const string ChaveEnvVar = "CHAVE_CRIPTOGRAFIA";
 
     private static readonly byte[] ChavePadrao = SHA256.HashData(
-        Encoding.UTF8.GetBytes("TogglReport.ChavePadrao.Configure TOGGL_CHAVE_CRIPTOGRAFIA em producao"));
+        Encoding.UTF8.GetBytes("TogglReport.ChavePadrao.Configure CHAVE_CRIPTOGRAFIA em producao"));
 
     public static string Criptografar(string textoPuro)
     {

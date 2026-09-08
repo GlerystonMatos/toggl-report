@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace RelatorioToggl.Configuracao;
 
 public static class AnalisadorIni
@@ -43,4 +45,13 @@ public static class AnalisadorIni
 
     public static string ObterOuPadrao(Dictionary<string, string> secao, string chave, string valorPadrao)
         => secao.TryGetValue(chave, out string? valor) ? valor : valorPadrao;
+
+    public static List<string> DividirLista(string? valor)
+        => (valor ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+
+    public static void Escrever(string caminho, string conteudo)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(caminho)!);
+        File.WriteAllText(caminho, conteudo, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+    }
 }

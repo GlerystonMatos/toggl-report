@@ -1,6 +1,6 @@
 import { createTheme, alpha } from '@mui/material/styles';
 
-const CORES = {
+export const CORES = {
     navbarFundo: '#1A1A32',
     fundoClaro: '#F8F9FA',
     textoEscuro: '#121216',

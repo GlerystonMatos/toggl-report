@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
 import { obterGant } from '../../api/gantApi';
+import { useRecurso } from '../../hooks/useRecurso';
 import type { ResultadoGant } from '../../api/tipos';
 
 interface ResultadoUseGant {
@@ -9,19 +9,6 @@ interface ResultadoUseGant {
 }
 
 export function useGant(): ResultadoUseGant {
-    const [gant, setGant] = useState<ResultadoGant | null>(null);
-    const [carregando, setCarregando] = useState(false);
-
-    const carregar = useCallback(async (dataInicio: string, dataFim: string, termo?: string): Promise<ResultadoGant> => {
-        setCarregando(true);
-        try {
-            const dados = await obterGant(dataInicio, dataFim, termo);
-            setGant(dados);
-            return dados;
-        } finally {
-            setCarregando(false);
-        }
-    }, []);
-
-    return { gant, carregando, carregar };
+    const { dados, carregando, carregar } = useRecurso(obterGant);
+    return { gant: dados, carregando, carregar };
 }

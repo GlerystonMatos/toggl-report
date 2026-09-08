@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
+import { useColecaoCrud } from '../../hooks/useColecaoCrud';
 import type { CriarUsuarioRequest, EditarUsuarioRequest, UsuarioResumo } from '../../api/tipos';
 
 import {
@@ -20,44 +21,17 @@ interface ResultadoUseUsuarios {
 }
 
 export function useUsuarios(): ResultadoUseUsuarios {
-    const [usuarios, setUsuarios] = useState<UsuarioResumo[]>([]);
-    const [carregando, setCarregando] = useState(false);
-
-    const carregar = useCallback(async (): Promise<UsuarioResumo[]> => {
-        setCarregando(true);
-        try {
-            const lista = await listarUsuarios();
-            setUsuarios(lista);
-            return lista;
-        } finally {
-            setCarregando(false);
-        }
-    }, []);
-
-    const criar = useCallback(async (dados: CriarUsuarioRequest): Promise<UsuarioResumo> => {
-        const criado = await criarUsuario(dados);
-        setUsuarios((atual) => [...atual, criado]);
-        return criado;
-    }, []);
-
-    const editar = useCallback(
-        async (chave: string, dados: EditarUsuarioRequest): Promise<UsuarioResumo> => {
-            const atualizado = await editarUsuario(chave, dados);
-            setUsuarios((atual) => atual.map((usuario) => (usuario.chave === chave ? atualizado : usuario)));
-            return atualizado;
-        },
-        [],
-    );
-
-    const remover = useCallback(async (chave: string): Promise<void> => {
-        await removerUsuario(chave);
-        setUsuarios((atual) => atual.filter((usuario) => usuario.chave !== chave));
-    }, []);
+    const { itens, ...resto } = useColecaoCrud<UsuarioResumo, CriarUsuarioRequest, EditarUsuarioRequest>({
+        listar: listarUsuarios,
+        criar: criarUsuario,
+        editar: editarUsuario,
+        remover: removerUsuario,
+    });
 
     const validar = useCallback(async (tokenApi: string): Promise<boolean> => {
         const resultado = await validarToken(tokenApi);
         return resultado.valido;
     }, []);
 
-    return { usuarios, carregando, carregar, criar, editar, remover, validar };
+    return { usuarios: itens, ...resto, validar };
 }
