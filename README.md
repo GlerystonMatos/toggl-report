@@ -6,13 +6,13 @@ Este repositório reúne três projetos independentes:
 
 ## [`toggl-report-back/`](./toggl-report-back/README.md) — C# / .NET 10
 
-Console interativo original **+** uma Web API local (autenticação HTTP Basic opcional, documentada via Swagger) que expõe as mesmas funcionalidades, além de uma biblioteca compartilhada entre os dois. Consulta o Toggl Track, faz cache do retorno em INI (`dados/`), agrupa por descrição/tag e permite busca por parte da descrição.
+Web API local (autenticação HTTP Basic opcional, documentada via Swagger) que expõe as funcionalidades da aplicação, além de uma biblioteca de núcleo compartilhada. Consulta o Toggl Track, faz cache do retorno em INI (`dados/`), agrupa por descrição/tag e permite busca por parte da descrição.
 
 ➡️ **[Documentação completa do back-end](./toggl-report-back/README.md)**
 
 ## [`toggl-report-front/`](./toggl-report-front/README.md) — React + TypeScript + MUI
 
-Frontend web que consome a Web API acima, replicando o mesmo fluxo do console (parâmetros → usuários/tokens → consulta → relatório → busca) em uma interface gráfica local.
+Frontend web que consome a Web API acima, com o fluxo completo (parâmetros → usuários/tokens → consulta → relatório → busca) em uma interface gráfica local.
 
 ➡️ **[Documentação completa do frontend](./toggl-report-front/README.md)**
 
@@ -33,8 +33,6 @@ dotnet run --project toggl-report-back/TogglReport.Api
 # 2. Frontend (em outro terminal)
 cd toggl-report-front && npm install && npm run dev
 ```
-
-O console pode ser usado independentemente da API/frontend — veja o [README do back-end](./toggl-report-back/README.md) para rodá-lo sozinho.
 
 ## Como rodar com Docker
 

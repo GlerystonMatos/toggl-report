@@ -1,19 +1,27 @@
+import { CORES } from '../../theme';
 import type { ReactNode } from 'react';
 import { useSprint } from './useSprint';
 import { formatarData } from '../../utils/datas';
 import SearchIcon from '@mui/icons-material/Search';
 import { FONTE_MARCA } from '../../utils/tipografia';
-import { Fragment, useEffect, useState } from 'react';
 import { formatarDuracao } from '../../utils/duracao';
 import type { CategoriasSprint } from '../../api/tipos';
 import { AvisoCache } from '../../components/AvisoCache';
 import { BadgeSigla } from '../../components/BadgeSigla';
 import { useNotificacao } from '../../hooks/useNotificacao';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { CabecalhoView } from '../../components/CabecalhoView';
 import { lerTachados, gravarTachados, idLinhaTarefa } from './tachados';
 import { EsqueletoCarregando } from '../../components/EsqueletoCarregando';
 import { BotaoComCarregamento } from '../../components/BotaoComCarregamento';
-import { contarDigitos, formatarCodigo, formatarDisponivel, formatarHoraResumida } from './calculos';
+
+import {
+    contarDigitos,
+    formatarCodigo,
+    formatarDisponivel,
+    formatarHoraResumida,
+    calcularColisaoPosicao,
+} from './calculos';
 
 import {
     Box,
@@ -44,9 +52,9 @@ interface SprintViewProps {
     categorias?: CategoriasSprint | null;
 }
 
-const COR_PENDENTE = '#EA4335';
-const COR_CONCLUIDO = '#34A853';
-const COR_TAG = '#F57C00';
+const COR_PENDENTE = CORES.corPendente;
+const COR_CONCLUIDO = CORES.corConcluido;
+const COR_TAG = CORES.corTag;
 
 const LARGURA_CELULA = '2.5rem';
 
@@ -158,11 +166,28 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
     const cabecalho = resultado?.cabecalho;
     const tarefas = resultado?.tarefas ?? [];
     const larguraCodigo = tarefas.reduce((maximo, tarefa) => Math.max(maximo, contarDigitos(tarefa.codigo)), 0);
+
+    const colisaoPorLinha = useMemo(() => calcularColisaoPosicao(tarefas), [tarefas]);
+
+    const tarefasComId = useMemo(() => {
+        const ocorrenciasPorChave = new Map<string, number>();
+        return tarefas.map((linha, indice) => {
+            const chaveGrupo = `${linha.codigo}∙${linha.descricao}`;
+            const indiceNoGrupo = ocorrenciasPorChave.get(chaveGrupo) ?? 0;
+            ocorrenciasPorChave.set(chaveGrupo, indiceNoGrupo + 1);
+            return {
+                linha,
+                id: idLinhaTarefa(linha.codigo, linha.descricao, indiceNoGrupo),
+                codigoDuplicado: colisaoPorLinha[indice],
+            };
+        });
+    }, [tarefas, colisaoPorLinha]);
+
     const tarefasFiltradas = termoBusca.trim()
-        ? tarefas.filter((t) =>
-            `${t.codigo} ${t.descricao}`.toLowerCase().includes(termoBusca.trim().toLowerCase()),
+        ? tarefasComId.filter(({ linha }) =>
+            `${linha.codigo} ${linha.descricao}`.toLowerCase().includes(termoBusca.trim().toLowerCase()),
         )
-        : tarefas;
+        : tarefasComId;
     const colaboradores = resultado?.colaboradores ?? [];
     const totalPendentes = colaboradores.reduce((soma, colaborador) => soma + colaborador.tarefasPendentes, 0);
     const totalConcluidas = colaboradores.reduce((soma, colaborador) => soma + colaborador.tarefasConcluidas, 0);
@@ -280,8 +305,6 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
                                                         : disponivel.positivo
                                                             ? COR_CONCLUIDO
                                                             : undefined,
-                                                    fontWeight:
-                                                        disponivel.negativo || disponivel.positivo ? 700 : undefined,
                                                 }}
                                                 align="right">
                                                 {disponivel.texto}
@@ -386,11 +409,10 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {tarefasFiltradas.map((linha, i) => {
-                                const id = idLinhaTarefa(linha.codigo, linha.descricao, linha.nomeExibicao);
+                            {tarefasFiltradas.map(({ linha, id, codigoDuplicado }) => {
                                 const riscada = tachados.has(id);
                                 return (
-                                    <TableRow key={`${id}|${i}`} hover>
+                                    <TableRow key={id} hover>
                                         <TableCell sx={{ width: '1%', px: 0.5 }}>
                                             <Checkbox
                                                 size="small"
@@ -412,8 +434,26 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
                                                 <EtiquetaFixa texto="Pendente" cor={COR_PENDENTE} />
                                             )}
                                         </TableCell>
-                                        <TableCell align="center" sx={{ width: '1%', px: 0.5, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
-                                            {formatarCodigo(linha.codigo, larguraCodigo)}
+                                        <TableCell
+                                            align="center"
+                                            sx={{
+                                                width: '1%',
+                                                px: 0.5,
+                                                whiteSpace: 'nowrap',
+                                                fontVariantNumeric: 'tabular-nums',
+                                                ...(codigoDuplicado
+                                                    ? { color: COR_PENDENTE, fontWeight: 700 }
+                                                    : {}),
+                                            }}>
+                                            {codigoDuplicado ? (
+                                                <Tooltip title="Código repetido: mais de um colaborador ocupa a mesma posição (DEV/REV/QA) desta descrição.">
+                                                    <Box component="span">
+                                                        {formatarCodigo(linha.codigo, larguraCodigo)}
+                                                    </Box>
+                                                </Tooltip>
+                                            ) : (
+                                                formatarCodigo(linha.codigo, larguraCodigo)
+                                            )}
                                         </TableCell>
                                         <TableCell sx={{ maxWidth: 360, px: 0.8 }}>
                                             <Tooltip title={linha.descricao}>
@@ -424,6 +464,9 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
                                                         whiteSpace: 'nowrap',
                                                         ...(riscada
                                                             ? { textDecoration: 'line-through', color: 'text.disabled' }
+                                                            : {}),
+                                                        ...(codigoDuplicado
+                                                            ? { color: COR_PENDENTE, fontWeight: 700 }
                                                             : {}),
                                                     }}>
                                                     {linha.descricao || '(sem descrição)'}
@@ -456,9 +499,9 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
                                                     <TableCell align="center" sx={{ px: 0.5, width: LARGURA_CELULA, whiteSpace: 'nowrap' }}>
                                                         {temColaborador ? (
                                                             <BadgeSigla
-                                                                sigla={linha.sigla}
-                                                                cor={linha.cor}
-                                                                nome={linha.nomeExibicao} />
+                                                                sigla={bloco.sigla ?? ''}
+                                                                cor={bloco.cor ?? undefined}
+                                                                nome={bloco.nomeExibicao ?? undefined} />
                                                         ) : (
                                                             <EtiquetaFixa texto="–" cor="text.primary" />
                                                         )}
@@ -551,6 +594,11 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
                                 <Typography component="li" variant="body2" color="text.secondary">
                                     O código (TEL - 0000) é preenchido com zeros à esquerda até o tamanho do maior código
                                     da lista deste sprint (o número de zeros varia conforme a listagem).
+                                </Typography>
+                                <Typography component="li" variant="body2" color="text.secondary">
+                                    Quando mais de um colaborador ocupa a mesma posição (DEV/REV/QA) da mesma descrição, a
+                                    tarefa aparece em linhas separadas e o código e a descrição dessas linhas ficam em
+                                    vermelho.
                                 </Typography>
                                 <Typography component="li" variant="body2" color="text.secondary">
                                     Situação e Prioridade são fixas — "Baixa" / "Pendente" nas linhas normais, "Tag"

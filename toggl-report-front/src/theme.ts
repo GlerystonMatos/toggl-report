@@ -10,6 +10,9 @@ export const CORES = {
     accentMoonGold: '#F5DFA0',
     accentRoxo: '#9A669F',
     creme: '#F8F9FA',
+    corPendente: '#EA4335',
+    corConcluido: '#34A853',
+    corTag: '#F57C00',
 } as const;
 
 export const tema = createTheme({

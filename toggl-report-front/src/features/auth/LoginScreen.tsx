@@ -57,7 +57,7 @@ export function LoginScreen({ entrando, erro, onEntrar }: LoginScreenProps): Rea
                         disabled={!usuario || !senha}>
                         Entrar
                     </BotaoComCarregamento>
-                    <CreditoApp sx={{ textAlign: 'center' }} />
+                    <CreditoApp sx={{ textAlign: 'center', fontWeight: 700, fontSize: '0.75rem' }} />
                 </Stack>
             </Paper>
         </Box>

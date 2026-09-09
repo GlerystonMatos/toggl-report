@@ -191,14 +191,14 @@ export interface ResultadoGant {
 export interface BlocoCategoriaSprint {
     preHoras: number;
     reaSegundos: number;
+    nomeExibicao: string | null;
+    sigla: string | null;
+    cor: string | null;
 }
 
 export interface LinhaTarefaSprint {
     codigo: string;
     descricao: string;
-    nomeExibicao: string;
-    sigla: string;
-    cor: string;
     agrupada: boolean;
     dev: BlocoCategoriaSprint;
     rev: BlocoCategoriaSprint;
