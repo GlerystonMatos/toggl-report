@@ -25,6 +25,6 @@ export function limparTachados(chaveSprint: string): void {
     }
 }
 
-export function idLinhaTarefa(codigo: string, descricao: string, nomeExibicao: string): string {
-    return `${codigo}∙${descricao}∙${nomeExibicao}`;
+export function idLinhaTarefa(codigo: string, descricao: string, indiceNoGrupo: number): string {
+    return `${codigo}∙${descricao}∙${indiceNoGrupo}`;
 }

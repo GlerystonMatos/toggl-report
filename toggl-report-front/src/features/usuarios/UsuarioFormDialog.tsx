@@ -1,3 +1,4 @@
+import { CORES } from '../../theme';
 import type { ReactNode } from 'react';
 import { ErroApi } from '../../api/http';
 import { useEffect, useState } from 'react';
@@ -18,7 +19,7 @@ import {
     DialogContent,
 } from '@mui/material';
 
-const COR_PADRAO_USUARIO = '#5B82F6';
+const COR_PADRAO_USUARIO = CORES.accentAzul;
 
 interface UsuarioFormDialogProps {
     aberto: boolean;

@@ -19,9 +19,26 @@ interface ImportarDadosDialogProps {
     aberto: boolean;
     onFechar: () => void;
     onImportado: () => void;
+    titulo?: string;
+    descricao?: ReactNode;
+    rotuloCancelar?: string;
 }
 
-export function ImportarDadosDialog({ aberto, onFechar, onImportado }: ImportarDadosDialogProps): ReactNode {
+const DESCRICAO_PADRAO: ReactNode = (
+    <>
+        Nenhum usuário cadastrado ainda. Se você já tem um backup (.zip) da pasta <code>dados/</code>, pode
+        importá-lo agora — ou seguir sem importar e cadastrar tudo manualmente pelo fluxo normal.
+    </>
+);
+
+export function ImportarDadosDialog({
+    aberto,
+    onFechar,
+    onImportado,
+    titulo = 'Nenhum dado encontrado',
+    descricao = DESCRICAO_PADRAO,
+    rotuloCancelar = 'Seguir sem importar',
+}: ImportarDadosDialogProps): ReactNode {
     const { notificarErro, notificarSucesso } = useNotificacao();
     const [arquivo, setArquivo] = useState<File | null>(null);
     const [importando, setImportando] = useState(false);
@@ -52,14 +69,10 @@ export function ImportarDadosDialog({ aberto, onFechar, onImportado }: ImportarD
 
     return (
         <Dialog open={aberto} onClose={importando ? undefined : fecharEResetar} maxWidth="xs" fullWidth>
-            <DialogTitle>Nenhum dado encontrado</DialogTitle>
+            <DialogTitle>{titulo}</DialogTitle>
             <DialogContent>
                 <Stack spacing={2} sx={{ mt: 1 }}>
-                    <DialogContentText>
-                        Nenhum usuário cadastrado ainda. Se você já tem um backup (.zip) da pasta{' '}
-                        <code>dados/</code>, pode importá-lo agora — ou seguir sem importar e cadastrar tudo
-                        manualmente pelo fluxo normal.
-                    </DialogContentText>
+                    <DialogContentText component="div">{descricao}</DialogContentText>
                     <BotaoComCarregamento
                         component="label"
                         variant="outlined"
@@ -77,7 +90,7 @@ export function ImportarDadosDialog({ aberto, onFechar, onImportado }: ImportarD
             </DialogContent>
             <DialogActions>
                 <BotaoComCarregamento onClick={fecharEResetar} disabled={importando}>
-                    Seguir sem importar
+                    {rotuloCancelar}
                 </BotaoComCarregamento>
                 <BotaoComCarregamento
                     variant="contained"

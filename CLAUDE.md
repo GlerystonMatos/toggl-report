@@ -5,16 +5,21 @@ qualquer sessão futura sem precisar reexplicar as decisões já tomadas.
 
 O repositório reúne **dois projetos independentes**:
 
-- **`toggl-report-back/`** — três projetos **C# / .NET 10** na mesma solução
-  (`TogglReport.slnx`): o console original (`TogglReport.Console`), uma Web API com
-  autenticação HTTP Basic opcional que expõe as mesmas funcionalidades (`TogglReport.Api`), e uma
-  biblioteca comum aos dois (`TogglReport.Nucleo`).
-- **`toggl-report-front/`** — frontend **React 19 + TypeScript + MUI** (Vite) que
-  consome a Web API, replicando o fluxo do console numa interface gráfica.
+- **`toggl-report-back/`** — dois projetos **C# / .NET 10** na mesma solução
+  (`TogglReport.slnx`): uma Web API com autenticação HTTP Basic opcional que
+  expõe as funcionalidades da aplicação (`TogglReport.Api`) e a biblioteca de
+  núcleo que ela referencia (`TogglReport.Nucleo`). O console original
+  (`TogglReport.Console`) existiu de 2026-09-02 a 2026-09-08 e foi **removido
+  por completo** — ver §7, último item do histórico.
+- **`toggl-report-front/`** — frontend **React 19 + TypeScript + MUI** (Vite)
+  que consome a Web API numa interface gráfica.
 
-Este arquivo cobre os dois. §2–§4 tratam do `toggl-report-back` (console, núcleo,
-API); §5 trata do `toggl-report-front`; §6 em diante são transversais aos dois
-(decisões, histórico, `.gitignore`, convenções, projeto irmão).
+Este arquivo cobre os dois. §3–§4 tratam do `toggl-report-back` (núcleo, API);
+§5 trata do `toggl-report-front`; §6 em diante são transversais aos dois
+(decisões, histórico, `.gitignore`, convenções, projeto irmão). A numeração
+de seções pula de §1 para §3 de propósito — a antiga §2 (Console) foi removida
+sem renumerar o restante, para preservar as dezenas de referências `§2.x` que
+o histórico (§7) já continha antes da remoção.
 
 ---
 
@@ -22,68 +27,61 @@ API); §5 trata do `toggl-report-front`; §6 em diante são transversais aos doi
 
 Aplicação que gera relatórios de tempo trabalhado a partir da **API v9 do Toggl
 Track**, agrupando por descrição e/ou tag, por usuário, em um período informado —
-hoje com **duas interfaces** para a mesma funcionalidade (console e Web API +
-frontend web), compartilhando a mesma lógica de negócio e o mesmo formato de
-persistência em INI.
+via uma **Web API** (`TogglReport.Api`) consumida por um **frontend web**
+(`toggl-report-front`), com um **núcleo compartilhado** (`TogglReport.Nucleo`)
+concentrando toda a lógica de negócio e o formato de persistência em INI.
 
-- **Console** (`toggl-report-back/TogglReport.Console`, assembly `TogglReport`): totalmente interativo, um
-  assistente guia a configuração e persiste em `dados/TogglRelatorioParametros.ini`
-  (parâmetros do relatório) e `dados/TogglUsuarios.ini` (usuários/tokens,
-  compartilhado com o Gantt — ver §2.4), ao lado do executável.
-- **Web API** (`toggl-report-back/TogglReport.Api`): mesmas funcionalidades por
-  HTTP, com autenticação HTTP Basic opcional (§4.8), documentada via Swagger, com sua **própria** pasta
-  `dados/`.
+- **Web API** (`toggl-report-back/TogglReport.Api`): expõe as funcionalidades
+  da aplicação por HTTP, com autenticação HTTP Basic opcional (§4.8),
+  documentada via Swagger, com sua própria pasta `dados/` (parâmetros do
+  relatório em `dados/TogglRelatorioParametros.ini`, usuários/tokens em
+  `dados/TogglUsuarios.ini` — compartilhado com o Gantt e o Sprint, ver §3).
 - **Núcleo compartilhado** (`toggl-report-back/TogglReport.Nucleo`): modelos,
-  acesso a INI, cliente HTTP do Toggl e as regras de agrupamento/busca/decisão de
-  cache — referenciado pelos dois acima, nenhuma duplicação de lógica de negócio.
-- **Frontend** (`toggl-report-front`): consome a Web API, replicando o mesmo
-  fluxo do console (parâmetros → usuários/tokens → consulta → relatório → busca).
+  acesso a INI, cliente HTTP do Toggl e as regras de agrupamento/busca/decisão
+  de cache — referenciado pela Web API acima, nenhuma duplicação de lógica de
+  negócio.
+- **Frontend** (`toggl-report-front`): consome a Web API, com o fluxo
+  parâmetros → usuários/tokens → consulta → relatório → busca.
 - **Multiusuário**: cada usuário tem seu API Token pessoal; o relatório consolida
   todos.
-- **Cache de consulta** (`dados/TogglRelatorioData.ini`, ao lado de cada executável):
-  guarda o retorno cru da última consulta bem-sucedida de cada usuário. Se
-  período e usuários da próxima consulta forem iguais, oferece carregar do cache
-  (default) em vez de consultar a API de novo; o agrupamento/cálculo sempre roda
-  em runtime sobre o dado, cacheado ou não — o cache nunca guarda resultado já
-  processado. Também serve de reserva quando o limite de 30 requisições/hora por
-  usuário é atingido (ver §3/§6).
-- **Gráfico de Gantt** (só na Web API + frontend, sem equivalente no console):
-  segunda visualização dos mesmos dados, com parâmetros (período + tags a
-  detalhar + agrupamento) e cache (`dados/TogglGantData.ini`) **próprios e
-  independentes** dos do relatório — a mesma pessoa pode ter um relatório e um
-  Gantt configurados com períodos diferentes ao mesmo tempo, e uma consulta
-  não invalida a outra. Ver §4.6/§5.5.
-- **Sprint** (só na Web API + frontend, sem equivalente no console, igual ao
-  Gantt): terceira visualização, agora com **gestão** (CRUD de sprints) além do
-  acompanhamento. Cada sprint tem nome, horas/dia e período próprios
-  (`dados/TogglSprints.ini`); há um mapeamento **global** TAG → categoria
-  (`Dev`/`Rev`/`Qa`, `dados/TogglSprintCategorias.ini`); cache de consulta
-  dedicado (`dados/TogglSprintData.ini`, mesmo formato do relatório/Gantt). A
-  tela de acompanhamento calcula a **capacidade por colaborador** e monta um
-  grid com **uma linha por (tarefa × colaborador)**, agrupando por descrição
-  ou por tag (conforme o `Agrupamento` da etapa "Parâmetros", regra do
-  `ServicoGant`). Prioridade e Situação são **valores fixos exibidos**
+- **Cache de consulta** (`dados/TogglRelatorioData.ini`, ao lado do executável
+  da Web API): guarda o retorno cru da última consulta bem-sucedida de cada
+  usuário. Se período e usuários da próxima consulta forem iguais, oferece
+  carregar do cache (default) em vez de consultar a API de novo; o
+  agrupamento/cálculo sempre roda em runtime sobre o dado, cacheado ou não —
+  o cache nunca guarda resultado já processado. Também serve de reserva
+  quando o limite de 30 requisições/hora por usuário é atingido (ver §3/§6).
+- **Gráfico de Gantt** (Web API + frontend): segunda visualização dos mesmos
+  dados, com parâmetros (período + tags a detalhar + agrupamento) e cache
+  (`dados/TogglGantData.ini`) **próprios e independentes** dos do relatório —
+  a mesma pessoa pode ter um relatório e um Gantt configurados com períodos
+  diferentes ao mesmo tempo, e uma consulta não invalida a outra. Ver
+  §4.6/§5.5.
+- **Sprint** (Web API + frontend, igual ao Gantt): terceira visualização,
+  agora com **gestão** (CRUD de sprints) além do acompanhamento. Cada sprint
+  tem nome, horas/dia e período próprios (`dados/TogglSprints.ini`); há um
+  mapeamento **global** TAG → categoria (`Dev`/`Rev`/`Qa`,
+  `dados/TogglSprintCategorias.ini`); cache de consulta dedicado
+  (`dados/TogglSprintData.ini`, mesmo formato do relatório/Gantt). A tela de
+  acompanhamento calcula a **capacidade por colaborador** e monta um grid
+  agrupado por descrição ou por tag (conforme o `Agrupamento` da etapa
+  "Parâmetros", regra do `ServicoGant`), mesclando colaboradores que ocupam
+  categorias (Dev/Rev/Qa) diferentes de uma mesma descrição/tag numa única
+  linha — só abre linhas separadas quando dois colaboradores disputam a
+  mesma categoria (ver §4.9). Prioridade e Situação são **valores fixos
+  exibidos**
   ("Baixa" / "Pendente"), sem edição nem persistência ("sem integração por
-  enquanto"). Molde do Gantt em todas as camadas. Ver §4.9/§5/§7-item-27.
+  enquanto"). Molde do Gantt em todas as camadas. Ver §4.9/§5/§7.
 - **Usuário ganhou três campos exclusivos da versão web** (`Sigla`, `Cor`,
-  `Selecionado`) — persistidos no mesmo `TogglUsuarios.ini`, lidos/gravados pelo
-  `CarregadorUsuariosIni` (ver §2.4); o console não tem UI
-  para editá-los, mas preserva os valores ao resalvar a configuração (ver
-  §2.4). `Selecionado` decide quais usuários entram na **próxima consulta**
-  (relatório ou Gantt) — os demais nem chegam a ser considerados por
-  `ServicoConsulta`.
-- **Não há exportação para CSV** — os dados só existem no console/frontend e no
+  `Selecionado`) — persistidos no mesmo `TogglUsuarios.ini`, lidos/gravados
+  pelo `CarregadorUsuariosIni` (ver §3). `Selecionado` decide quais usuários
+  entram na **próxima consulta** (relatório, Gantt ou Sprint) — os demais nem
+  chegam a ser considerados por `ServicoConsulta`.
+- **Não há exportação para CSV** — os dados só existem no frontend e no
   cache.
-- **Zero dependências externas no console** — nenhum `PackageReference`; parser
-  de INI e banner feitos à mão. A Web API tem uma única dependência
+- **Poucas dependências externas** — o núcleo não tem nenhum
+  `PackageReference`; a Web API tem uma única dependência
   (`Swashbuckle.AspNetCore`, necessária para o Swagger).
-- **Console**: tela de boas-vindas, animação de carregamento, cabeçalho fixo
-  (redesenhado a cada passo), padrão de cores centralizado e tela de despedida.
-  Toda troca de tela limpa o console (via sequência ANSI, não só
-  `Console.Clear()`) e redesenha o cabeçalho antes do novo conteúdo, via
-  `Tela.ExibirComCabecalho`. Moldura dimensionada para a largura real do
-  terminal, sem nunca ultrapassá-la. O mesmo estilo geral do projeto irmão
-  `gerador-chave-nfe` (ver §11).
 - **Tudo em pt-BR**: interface, mensagens, identificadores, pastas e namespace
   (`RelatorioToggl`/`RelatorioToggl.Api`), tanto no back quanto no front. Em
   inglês só o inevitável (`Program`, `Main`, `Task`/`async`,
@@ -99,331 +97,14 @@ persistência em INI.
 
 ---
 
-## 2. Console (`toggl-report-back/TogglReport.Console`)
-
-### 2.1 Como compilar e rodar
-
-```bash
-cd toggl-report-back
-dotnet build TogglReport.slnx      # compila console + API + núcleo de uma vez
-dotnet run --project TogglReport.Console
-```
-
-- SDK: **.NET 10** (`net10.0`). `LangVersion=latest`, `ImplicitUsings=enable`,
-  `Nullable=enable`. Versão atual (`<Version>` e `Program.Versao`): **1.0.1.0**.
-- Solução: `toggl-report-back/TogglReport.slnx` → referencia os três `.csproj`
-  (`TogglReport.Console`, `TogglReport.Api`, `TogglReport.Nucleo`), todos dentro
-  de `toggl-report-back/`.
-- **Namespace raiz do console**: `RelatorioToggl`. **Assembly/executável**
-  continua `TogglReport` (nome do produto, `AssemblyName` inalterado desde
-  antes da reestruturação) — só a **pasta e o nome do `.csproj`** viraram
-  `TogglReport.Console` (item 16 do histórico), para bater com o padrão
-  `TogglReport.<X>` de `TogglReport.Api`/`TogglReport.Nucleo`.
-- **Não há testes automatizados.** Após mudanças: `dotnet build`, manter **0
-  warnings**, e validar o fluxo interativo manualmente.
-- A limpeza de tela é encapsulada em `Tela.Limpar()`: sai cedo se
-  `Console.IsOutputRedirected` (não escreve nada) e, senão, escreve a sequência
-  ANSI `Tela.SequenciaLimparTela` seguida de `Console.Clear()` (engolindo
-  `IOException`) — dá para "pipar" o app em testes rápidos (os laços de entrada,
-  porém, assumem terminal real; ver §2.7).
-
-### 2.2 Fluxo funcional (o que `Program.Main` faz)
-
-1. `Console.OutputEncoding = UTF8`; `Tela.Inicializar` (dimensiona `Tela.Largura`
-   pelo terminal); `Tela.BemVindo` (banner) + `Tela.Carregando` (animação ~1 s).
-2. **`OfereceRestaurarBackupSeNecessario`** (2026-09-06): se
-   `CarregadorConfiguracaoIni.Carregar(...)` devolve `null` (nem
-   `TogglRelatorioParametros.ini` nem `TogglUsuarios.ini` têm conteúdo —
-   checagem única, antes do laço principal), pergunta se quer restaurar de
-   um `.zip` da pasta `dados/` (caminho informado via `Prompt.Perguntar`,
-   `ZipFile.ExtractToDirectory` na pasta); recusando ou não achando o
-   arquivo, segue para o fluxo normal (cadastro do zero, já existente —
-   opção "b" do pedido original já era o comportamento padrão).
-3. **`GerarRelatoriosEnquantoUsuarioQuiser`** — laço `while (executarNovamente)`:
-   1. **`ColetarConfiguracaoConfirmadaAsync`** — laço até o usuário confirmar:
-      - `CarregadorConfiguracaoIni.Carregar(TogglRelatorioParametros.ini,
-        TogglUsuarios.ini)` (uma vez por ciclo) e um `ConfiguracaoApp` novo —
-        o loader combina o `[Geral]` de um arquivo com os `[Usuario:*]` do
-        outro num único objeto em memória (ver §2.4).
-      - `AssistenteConfiguracao.ColetarAsync(atual, salvos)` — campo a campo:
-        **agrupamento** (`EscolherOpcao` + confirmar, ou reaproveitar o salvo),
-        **tags detalhadas** (só se agrupamento é `tag`/`ambos`; lista livre
-        separada por vírgula, ou reaproveitar a salva), **usuários** (submenu
-        `MenuTokenUsuario`; obriga ≥ 1), **período** (data início/fim —
-        reaproveitar salvo ou informar+confirmar; valida `fim >= inicio`).
-      - Cabeçalho com o resumo, seguido da **lista de usuários selecionados**
-        (um por linha, `Tela.ListarUsuariosSelecionados`) → `Confirmar a
-        consulta com os parâmetros acima?`. Se recusado, recomeça. Se aceito,
-        grava `TogglRelatorioParametros.ini` e `TogglUsuarios.ini` (com
-        `try/catch`).
-   2. **`ObterRegistrosAsync`** — decide entre cache e API (delega para
-      `ServicoConsulta`, §3):
-      - Carrega `TogglRelatorioData.ini` (`ServicoConsulta.CarregarCacheSeExistente`,
-        com `try/catch`). Se existe e
-        `ServicoConsulta.CacheCorrespondeAosParametros` (mesmo período + mesmo
-        conjunto de usuários/tokens), pergunta "Deseja consultar novamente à
-        API?" (padrão **não** — Enter carrega do cache via
-        `ServicoConsulta.CarregarRegistrosDoCache`, sem chamar a API).
-      - Caso contrário (parâmetros diferentes, sem cache, ou usuário pediu para
-        consultar de novo): `ServicoConsulta.ConsultarUsuariosAsync` — para
-        cada usuário, se `LimitadorRequisicoes.PodeConsultar` (limite de
-        30/hora, em memória) permitir, `ClienteApiToggl.ObterRegistrosTempoAsync`;
-        senão, tenta o `UsuarioCacheado` daquele usuário no cache **só se for
-        do mesmo período e token** (senão pula, reportado como falha). O
-        console passa um callback (`ImprimirProgressoConsulta`) que traduz cada
-        `EventoConsultaUsuario` em uma linha colorida
-        (`• Nome: N registro(s)` / `erro — …` /
-        `limite de 30 requisições/hora atingido — …`). Quem falha é
-        **ignorado**; os demais seguem. Datas: o usuário escolhe dias no
-        **fuso local**, e as bordas são convertidas para UTC
-        (`SpecifyKind(…, Local).ToUniversalTime()`); fim inclusivo = 23:59:59
-        do último dia. Ao final, `ServicoConsulta.SalvarCache` regrava o
-        `TogglRelatorioData.ini` com o retorno cru.
-      - Retorna `(Dictionary<nome,registros>, List<string> ordem)` — mesmo
-        formato venha do cache ou da API; o passo seguinte não sabe nem
-        precisa saber qual foi a origem.
-   3. Se **ninguém** retornou dados, mostra um aviso **sem limpar a tela** — a
-      intenção é preservar visíveis as linhas de progresso/erro por usuário que
-      acabaram de ser impressas. Senão:
-      - **`ImprimirConteudoRelatorio`** — pelo mesmo motivo, a **primeira**
-        exibição do relatório (`EscritorRelatorioConsole.ImprimirRelatorioUsuario`
-        por usuário, ordem consultada, + a linha dupla final) também **não
-        limpa a tela** — fica anexada logo abaixo da consulta.
-        `ExibirRelatorioCompleto` (que envolve a mesma impressão em
-        `Tela.ExibirComCabecalho`, limpando antes) só é usado quando o usuário
-        escolhe "voltar ao relatório completo" a partir do menu pós-busca — aí
-        sim é uma troca de tela genuína.
-      - **`ExecutarFluxoBusca`** — pergunta "Deseja buscar por parte da
-        descrição?" (sem limpar, logo abaixo do relatório). Se sim,
-        **`ExecutarCicloDeBusca`** em laço: limpa + cabeçalho, pede o termo,
-        `ServicoBuscaDescricao.Buscar` (substring case-insensitive sobre os
-        dados já baixados, sem nova chamada à API) →
-        `EscritorBuscaDescricao.ImprimirNoConsole` (limpa + cabeçalho antes) →
-        `PerguntarProximaAcaoPosBusca` (1 = `ExibirRelatorioCompleto` — limpa,
-        reexibe o relatório completo e volta a perguntar se quer buscar; 2 =
-        pede novo termo direto, sem repetir a pergunta; 3/outro = encerra o
-        laço de busca).
-   4. "Executar novamente?" decide se repete.
-3. `Tela.Despedida`.
-
-### 2.3 Estrutura de arquivos
-
-```
-toggl-report-back/TogglReport.Console/
- ├─ Program.cs                     # orquestração: boas-vindas → coleta → ServicoConsulta → relatório → busca
- ├─ TogglReport.Console.csproj     # net10.0, Exe, AssemblyName=TogglReport, RootNamespace=RelatorioToggl, referencia TogglReport.Nucleo
- ├─ icon.ico
- ├─ Apresentacao/
- │   ├─ Paleta.cs                  # cores (papéis fixos) + Escrever / EscreverLinha
- │   ├─ Tela.cs                    # BemVindo / Carregando / Cabecalho / ExibirComCabecalho / Despedida / Limpar / Inicializar
- │   ├─ Prompt.cs                  # Perguntar / Confirmar / EscolherOpcao (EOF → encerra)
- │   ├─ Rotulos.cs                 # Agrupamento(valor) → texto de exibição
- │   ├─ AssistenteConfiguracao.cs  # ColetarAsync + LerCampo genérico (1 método por campo)
- │   └─ MenuTokenUsuario.cs        # submenu [A]dicionar / [R]emover / [E]ditar / [C]oncluir (delega a ServicoUsuarios do núcleo)
- └─ Relatorios/
-     ├─ EscritorRelatorioConsole.cs# ImprimirRelatorioUsuario + ImprimirLinha/Indentacao/TituloSecaoDescricao (públicos) + FormatarDuracao
-     └─ EscritorBuscaDescricao.cs  # imprime o resultado da busca no estilo de "Por descrição"
-```
-
-Todo o resto (modelos, INI, cliente HTTP, agrupamento, busca, decisão de
-cache/rate-limit) vive em `toggl-report-back/TogglReport.Nucleo/` — ver §3.
-
-### 2.4 Detalhes de domínio importantes
-
-- **`RegistroTempoDto.Duracao`** (segundos): **valor negativo = timer em
-  execução** — isolado por `ServicoAgrupamento.ObterEmAndamento`, fora dos
-  totais.
-- **`RegistroTempoDto.Tags`**: já resolvidas como nomes pela API.
-- Rótulos: `(sem descrição)`, `(sem tag)`.
-- **Chave do usuário no INI** (`[Usuario:<chave>]`): `nome` só com letras/dígitos,
-  minúsculo, sufixo numérico em colisão (`ServicoUsuarios.GerarChaveUnica`, no
-  núcleo). `NomeExibicao` é o rótulo dos relatórios.
-- **Agrupamento** (interno e no INI): `descricao`, `tag`, `ambos`.
-- **`ConfiguracaoApp.TagsDetalhadas`**: lista livre de tags (comparação
-  `OrdinalIgnoreCase`); persistida como `TagsDetalhadas=tag1,tag2` no INI (vazia
-  = `TagsDetalhadas=`). Só coletada pelo assistente quando o agrupamento inclui
-  tag; preservada (não zerada) quando não coletada de novo. Com agrupamento
-  "ambos": essas tags aparecem detalhadas em "Por descrição" e ficam totalmente
-  fora de "Por tag"; as demais tags não aparecem em "Por descrição", só em "Por
-  tag" (nome do campo mantido por compatibilidade com o INI).
-- **"Por descrição" filtra por `TagsDetalhadas` e ordena por prefixo `"TEL"`**:
-  com agrupamento "ambos", só entram entradas com pelo menos uma tag em
-  `TagsDetalhadas` (as demais só contam no total de "Por tag"); com agrupamento
-  "descricao" puro, entram todas (não há "Por tag" para compensar). Entre as
-  que entram, as que começam com `TEL` (`OrdinalIgnoreCase`) vêm primeiro; as
-  demais vêm depois, prefixadas com `"(tag) descrição"`
-  (`ServicoAgrupamento.AgruparPorDescricaoComTag` /
-  `EscritorRelatorioConsole.ImprimirSecaoDescricao`).
-- **Descrições "TEL" normalizadas já na chave de agrupamento**: "TEL-0000-AA" /
-  "TEL-0000 - AA" / "TEL - 0000 - AA" viram sempre `"TEL - 0000 - AA"` antes de
-  somar os tempos — não só na exibição
-  (`ServicoAgrupamento.NormalizarDescricaoTel`/`ChaveDescricao`). Só reformata
-  quando há dígitos logo após "TEL"; não mexe em "TELA", "TELEFONE" etc.
-- **Usuários vivem num arquivo próprio, `TogglUsuarios.ini`, separado dos
-  parâmetros do relatório desde 2026-09-07** (`CarregadorUsuariosIni.cs`,
-  `TogglUsuarios.ini` — pedido do usuário: só as seções `[Usuario:<chave>]`,
-  nada de `[Geral]`). `CarregadorConfiguracaoIni.Carregar(caminho,
-  caminhoUsuarios)`/`.Salvar(caminho, caminhoUsuarios, configuracao)`
-  delegam a leitura/escrita de `configuracao.Usuarios` para
-  `CarregadorUsuariosIni` — o modelo em memória (`ConfiguracaoApp.Usuarios`)
-  não mudou, só onde ele é persistido; nenhum consumidor de `ConfiguracaoApp`
-  (`ServicoConsulta`, `ServicoGant`, `Tela`, `AssistenteConfiguracao`,
-  `MenuTokenUsuario`) precisou mudar. **Migração automática, sem intervenção
-  manual**: se `TogglUsuarios.ini` ainda não existe mas o arquivo de
-  parâmetros informado tem seções `[Usuario:*]` (formato anterior a
-  2026-09-07), `CarregadorUsuariosIni.Carregar` extrai e grava essas seções
-  no novo arquivo na primeira leitura — mesmo espírito da migração
-  silenciosa de nome de arquivo do item 18, mas aqui é uma migração de
-  **conteúdo** entre dois arquivos, não uma renomeação. O arquivo de
-  parâmetros perde as seções `[Usuario:*]` (que ficam só como legado, até
-  a migração rodar) na primeira vez que for salvo depois disso, já que
-  `Salvar` não as escreve mais ali.
-- **`ConfiguracaoUsuario` tem três campos exclusivos da versão web**: `Sigla`
-  (string curta, usada como rótulo nas células do Gantt), `Cor` (hex, cor de
-  fundo dessas células) e `Selecionado` (`bool`, default `true` — decide se o
-  usuário entra na próxima consulta). Persistidos como `Sigla=`/`Cor=`/
-  `Selecionado=` na seção `[Usuario:<chave>]` de `TogglUsuarios.ini`, lidos
-  com `AnalisadorIni.ObterOuPadrao` (`Selecionado` via `bool.TryParse`,
-  default `true` se ausente ou inválido — usuários criados antes desse campo
-  existir continuam selecionados). **Importante**: `CarregadorUsuariosIni.
-  Salvar` grava os três campos sempre, mesmo quando quem chama é o console
-  (que não tem UI para eles) — é o que evita perdê-los quando o console
-  resalva a configuração. `ServicoUsuarios.SiglaEmUso` (mesmo padrão de
-  `NomeEmUso`/`TokenEmUso`, mas ignorando siglas vazias) valida unicidade na
-  Web API.
-- **`TokenApi` é criptografado em repouso desde 2026-09-06**
-  (`CriptografiaToken.Criptografar`/`Descriptografar`, AES, chave derivada de
-  `CHAVE_CRIPTOGRAFIA` — renomeada de `TOGGL_CHAVE_CRIPTOGRAFIA` em 2026-09-07
-  — ou uma chave padrão embutida se a env var não estiver configurada —
-  proteção básica, não resiste a quem lê o código-fonte público). A env var é
-  lida via `Environment.GetEnvironmentVariable` (não `IConfiguration`), então
-  em dev no Visual Studio vai no bloco `environmentVariables` do
-  `launchSettings.json` (ver §4.8). No mesmo rename de 2026-09-07 a
-  string-semente de `CriptografiaToken.ChavePadrao` também passou a citar
-  `CHAVE_CRIPTOGRAFIA` — isso **rotacionou a chave padrão embutida**, então
-  `.ini` com tokens `enc:` gravados **sem** env var configurada (chave padrão
-  antiga) precisam ter os tokens reinseridos. Não afeta quem usa
-  `CHAVE_CRIPTOGRAFIA`/`TOGGL_CHAVE_CRIPTOGRAFIA` com o mesmo valor de antes,
-  nem o Cloud Run (onde `dados/` é efêmero de qualquer jeito, ver
-  `toggl-report-infra`). Aplicado em `CarregadorUsuariosIni` (`TogglUsuarios.ini`, desde
-  2026-09-07 — antes era `CarregadorConfiguracaoIni`) e `CarregadorCacheIni`
-  (`TogglRelatorioData.ini`/`TogglGantData.ini`, e vale pro console também —
-  é o mesmo núcleo). Valor gravado com prefixo `enc:`; ao ler, se não tiver
-  esse prefixo, trata como texto puro (arquivo de antes desta mudança) —
-  migra sozinho pra criptografado no próximo `Salvar`, mesmo padrão de
-  migração silenciosa já usado pra renomear arquivo (§7, item 18).
-- **Cache (`CacheConsulta`/`UsuarioCacheado`) guarda dado cru, indexado por
-  `Chave` de usuário** (não por `NomeExibicao`, que pode ser editado):
-  `DataInicio`/`DataFim` da consulta em `[Geral]`, e uma seção
-  `[Usuario:<chave>]` por usuário com `NomeExibicao`, `TokenApi` e `Registros`
-  (JSON compacto do `List<RegistroTempoDto>`, sem nenhum agrupamento aplicado).
-  Bater os parâmetros (`ServicoConsulta.CacheCorrespondeAosParametros`) exige
-  mesmo período **e** todo usuário atual achar seu par no cache por `Chave` +
-  `TokenApi` (mesmo tamanho de lista dos dois lados).
-- **Limite de 30 requisições/hora é por processo, não persistido**:
-  `LimitadorRequisicoes` guarda os timestamps em memória
-  (`Dictionary<string, List<DateTime>>` estático); reinicia a cada execução.
-  Não é o mesmo mecanismo do retry de 429 em `ClienteApiToggl` (esse continua
-  ativo e trata o limite que a própria API do Toggl impõe). Console e Web API
-  têm contadores **independentes** (processos separados).
-
-### `TogglRelatorioParametros.ini` (exemplo) — em `AppContext.BaseDirectory/dados`
-
-```ini
-[Geral]
-DataInicioAnterior=2026-08-01
-DataFimAnterior=2026-08-31
-AgrupamentoPadrao=ambos
-TagsDetalhadas=Cliente X,Urgente
-```
-
-### `TogglUsuarios.ini` (exemplo) — em `AppContext.BaseDirectory/dados`
-
-Compartilhado pelo relatório e pelo Gantt (§4.6) — não tem `[Geral]`, só
-seções `[Usuario:<chave>]`:
-
-```ini
-[Usuario:joao]
-NomeExibicao=Joao Silva
-TokenApi=enc:abcdef1234567890...
-Sigla=JS
-Cor=#5B82F6
-Selecionado=True
-```
-
-### `TogglRelatorioData.ini` (exemplo) — em `AppContext.BaseDirectory/dados`
-
-```ini
-[Geral]
-DataInicio=2026-08-01
-DataFim=2026-08-31
-
-[Usuario:joao]
-NomeExibicao=Joao Silva
-TokenApi=abcdef1234567890
-Registros=[{"id":123456789,"workspace_id":1,"project_id":null,"description":"TEL-0433-AA","duration":3725,"tags":["Cliente X"],"start":"2026-08-01T13:00:00Z","stop":"2026-08-01T14:02:05Z"}]
-```
-
-`AppContext.BaseDirectory` é o diretório do **executável que está rodando** — o
-console e a Web API, sendo executáveis diferentes, têm cada um a sua própria
-pasta `dados/`, mesmo formato, sem compartilhar arquivo físico.
-
-### 2.5 Tratamento de erros (contratos — respeitar)
-
-- **401 num usuário**: `ClienteApiToggl` devolve `Falha`; o consumidor (console
-  ou API) reporta e **pula o usuário**. Nunca aborta a execução/requisição
-  inteira.
-- **429**: `ClienteApiToggl` espera `Retry-After` (fallback 5 s) e tenta **uma
-  vez** (`ehNovaTentativa`); se falhar de novo, reporta e pula.
-- **Rede / HTTP não-2xx / JSON inválido**: `Falha` com a mensagem; usuário
-  pulado.
-- **Validação de token** (`MenuTokenUsuario` no console; `POST
-  /api/usuarios`/`validar-token` na API): `GET /me`. No console, se falhar:
-  tentar de novo? Se não, "salvar assim mesmo, sem validação?". Na API, a
-  mesma decisão vira o parâmetro `ignorarValidacao` (ver §4).
-- **`NomeExibicao` duplicado**: rejeitado no cadastro e na edição, tanto no
-  console quanto na API (`ServicoUsuarios.NomeEmUso`, no núcleo) — é a chave
-  dos dicionários de resultado; nomes iguais quebrariam relatório e busca.
-- **Período com `fim < inicio`**: rejeitado nos dois (console repete a
-  pergunta; API devolve 400).
-- **EOF (stdin fechado, só console)**: `Prompt.LerEntrada` chama
-  `Environment.Exit(0)` — o app encerra em vez de entrar em laço.
-- **Falha ao carregar/salvar `TogglRelatorioData.ini`/`TogglRelatorioParametros.ini`/`TogglUsuarios.ini`**:
-  `try/catch (IOException or UnauthorizedAccessException)` — não é fatal; sem
-  cache utilizável, o app cai para a consulta normal.
-- **Limite de 30 requisições/hora atingido para um usuário**: usa o
-  `UsuarioCacheado` daquele usuário **só se for do mesmo período e token**;
-  senão, reporta e pula o usuário (mesmo tratamento de uma falha comum de
-  consulta — os demais usuários seguem).
-
-### 2.6 Limitações conhecidas (assumidas — não são bugs)
-
-- **App interativo**: assume terminal real. Com EOF/entrada redirecionada o app
-  **encerra** (não trava), mas não há modo "batch"/não-interativo.
-- **Sem paginação**: `GET /me/time_entries` traz tudo numa chamada; períodos
-  longos podem dar **400** (limite de histórico da conta).
-- **Não resolve nome de projeto/cliente** — só descrição e tag. `IdProjeto`
-  existe no DTO mas não é usado.
-- **`TogglRelatorioParametros.ini`, `TogglRelatorioData.ini` e `TogglUsuarios.ini`
-  guardam dado sensível** — o `TokenApi` é criptografado em repouso (§2.4),
-  mas os três são tratados como segredo mesmo assim (todos no `.gitignore`,
-  ver §8), dentro de `dados/` ao lado de cada executável.
-- **`Tela.Inicializar()` mede a largura uma única vez, na abertura**: se o
-  usuário redimensionar o terminal durante a execução, a moldura não se
-  readapta.
-- **Limite de 30 requisições/hora é só em memória, por processo**: reinicia a
-  cada execução; console e API não compartilham contador.
-- Sem testes automatizados.
-
----
-
 ## 3. Núcleo compartilhado (`toggl-report-back/TogglReport.Nucleo`)
 
-Biblioteca de classes (`Microsoft.NET.Sdk`, sem `OutputType`) referenciada por
-`TogglReport` e `TogglReport.Api` via `ProjectReference`. **Nunca** referencia
-`Console`, `Paleta` ou `Tela` (confirmado por grep — regra a manter). Contém
-tudo que é lógica de negócio ou acesso a INI, independente de qual interface
-(console ou HTTP) está chamando.
+Biblioteca de classes (`Microsoft.NET.Sdk`, sem `OutputType`) referenciada só
+por `TogglReport.Api` via `ProjectReference` (até 2026-09-08 também era
+referenciada pelo console, removido — ver §7). **Nunca** referencia
+`Console.ForegroundColor` nem qualquer classe de apresentação (confirmado por
+grep — regra a manter, mesmo não havendo mais um segundo consumidor). Contém
+toda a lógica de negócio e o acesso a INI da aplicação.
 
 ```
 toggl-report-back/TogglReport.Nucleo/
@@ -456,11 +137,11 @@ toggl-report-back/TogglReport.Nucleo/
  │   └─ ServicoGant.cs             # Montar(): agrupa o cache por usuário→categoria→descrição, dia a dia
  ├─ Sprint/                        # exclusivo do Sprint (namespace RelatorioToggl.Sprints — plural de propósito, ver item 27)
  │   ├─ CabecalhoSprint.cs         # record: resumo da sprint (nome, horas/dia, dias úteis, margem, período, Ct, Td) + TarefasPendentes/TarefasConcluidas (Concluidas sempre 0 — sem situação)
- │   ├─ BlocoCategoriaSprint.cs    # record: BlocoCategoriaSprint(decimal PreHoras, long ReaSegundos) — tempo previsto/realizado de uma categoria (Dev/Rev/Qa)
- │   ├─ LinhaTarefaSprint.cs       # record: Codigo + Descricao + NomeExibicao/Sigla/Cor do colaborador + Agrupada (true = linha agregada por tag) + 3 BlocoCategoriaSprint (Dev/Rev/Qa) — uma linha por (tarefa × colaborador)
+ │   ├─ BlocoCategoriaSprint.cs    # record: BlocoCategoriaSprint(decimal PreHoras, long ReaSegundos, string? NomeExibicao, string? Sigla, string? Cor) — tempo previsto/realizado de uma categoria (Dev/Rev/Qa) + o colaborador daquele bloco (null = categoria vazia nessa linha; desde 2026-09-08, ver §7)
+ │   ├─ LinhaTarefaSprint.cs       # record: Codigo + Descricao + Agrupada (true = linha agregada por tag) + 3 BlocoCategoriaSprint (Dev/Rev/Qa) — o colaborador não é mais 1:1 com a linha (saiu NomeExibicao/Sigla/Cor do nível da linha em 2026-09-08); uma linha pode mesclar até 3 colaboradores, um por bloco
  │   ├─ LinhaColaboradorSprint.cs  # record: NomeExibicao/Sigla/Cor/Td/SegundosRealizados/TarefasPendentes/TarefasConcluidas de um colaborador do sprint (Concluidas sempre 0)
  │   ├─ ResultadoSprint.cs         # record: Cabecalho + Linhas + Colaboradores
- │   └─ ServicoSprint.cs           # static, puro: Montar(sprint, usuariosSelecionados, resultadoConsulta, categorias) → ResultadoSprint (uma linha por tarefa × colaborador; tag-agg roteada p/ QA ou DEV por colaborador; grid ordenada por NumeroCodigo — nº extraído do Codigo, não string)
+ │   └─ ServicoSprint.cs           # static, puro: Montar(sprint, usuariosSelecionados, resultadoConsulta, categorias) → ResultadoSprint (empacotamento guloso por (Chave, Agrupada) mesclando colaboradores de categorias diferentes numa linha — ver texto abaixo; tag-agg roteada p/ QA ou DEV por colaborador; grid ordenada por NumeroCodigo — nº extraído do Codigo, não string)
  ├─ Toggl/
  │   ├─ ClienteApiToggl.cs         # HTTP Basic contra api.track.toggl.com/api/v9
  │   ├─ RegistroTempoDto.cs        # DTO de time entry
@@ -480,37 +161,203 @@ toggl-report-back/TogglReport.Nucleo/
 ```
 
 `ServicoAgrupamento.AgruparPorTagFiltrada(registros, tagsDetalhadas)` (usado
-pelo console e pela API) encapsula a mesma regra de exclusão que antes vivia
-só dentro de `EscritorRelatorioConsole.ImprimirSecaoTag` — devolve a lista já
+pela API) encapsula a mesma regra de exclusão que antes vivia só dentro do
+escritor de relatório do console (removido — ver §7) — devolve a lista já
 filtrada e ordenada por segundos decrescente.
 
 `ServicoConsulta` é o ponto mais importante deste projeto: é o que evita que
-console e Web API dupliquem a decisão "cache ou API" e o uso do rate limiter.
-Cada consumidor decide **quando** chamar cada método — o console via pergunta
-interativa (`Prompt.Confirmar`), a API via um parâmetro de requisição
-(`forcarConsultaApi`) — mas a regra em si (o que conta como "mesmo
-período/usuários", quando usar cache, como tratar o rate limit) só existe
-aqui.
+os fluxos de relatório/Gantt/Sprint da Web API dupliquem a decisão "cache ou
+API" e o uso do rate limiter. Cada consumidor decide **quando** chamar cada
+método via um parâmetro de requisição (`forcarConsultaApi`) — mas a regra em
+si (o que conta como "mesmo período/usuários", quando usar cache, como tratar
+o rate limit) só existe aqui.
 
 `Sprint/ServicoSprint.Montar` é o equivalente do `ServicoGant.Montar` para o
 Sprint: função pura que recebe a sprint, os usuários selecionados, o
 `ResultadoConsulta` (dado cru do cache/API) e o mapeamento de categorias, e
 devolve um `ResultadoSprint` (cabeçalho com o cálculo de capacidade + uma
-linha de tarefa por **(tarefa × colaborador)**). `ChaveAgrupamento` devolve
-`(string Chave, bool Agrupada)` — linhas de descrição (`Agrupada == false`,
-`Codigo`/`Descricao` separados por `SepararCodigo`, regex
-`^(TEL - \d+)(?: - (.+))?$`) e linhas agregadas por tag (`Agrupada == true`,
-só com agrupamento `tag`/`ambos`), estas roteadas para **um** grupo por
-colaborador — QA se o colaborador tem ≥ 1 apontamento no sprint com tag ∈
-`categorias.Qa`, senão DEV (REV nunca recebe tag-agg). **Não há mais campos
-manuais** (prioridade/situação) — ver item 27, "Ajuste posterior 7". A grid é
-ordenada pelo **número do código** (`ServicoSprint.NumeroCodigo` extrai os
-dígitos de `Codigo` — `.ThenBy(t => t.Agrupada ? 0 : NumeroCodigo(t.Codigo))`
-antes do desempate por string): `TEL - 994 → TEL - 1000 → TEL - 1118` (antes
-era ordenação por string, e `TEL - 1118` vinha antes de `TEL - 994`); linhas
-de descrição por nº crescente de código, as sem código depois, tag-agg por
-último na ordem dos colaboradores. Só na Web API + frontend. O cálculo de
-capacidade e o formato da tela estão em §4.9.
+grid de tarefas). `ChaveAgrupamento` devolve `(string Chave, bool Agrupada)` —
+linhas de descrição (`Agrupada == false`, `Codigo`/`Descricao` separados por
+`SepararCodigo`, regex `^(TEL - \d+)(?: - (.+))?$`) e linhas agregadas por tag
+(`Agrupada == true`, só com agrupamento `tag`/`ambos`), estas roteadas para
+**um** grupo por colaborador — QA se o colaborador tem ≥ 1 apontamento no
+sprint com tag ∈ `categorias.Qa`, senão DEV (REV nunca recebe tag-agg). **Não
+há mais campos manuais** (prioridade/situação) — ver item 27, "Ajuste
+posterior 7".
+
+**Mesclagem de linhas por categoria** (2026-09-08, ver §7, último item): até
+então, cada `(Chave, Agrupada)` produzia **uma `LinhaTarefaSprint` por
+colaborador**, mesmo quando dois colaboradores diferentes só ocupavam
+categorias diferentes da mesma descrição/tag (ex.: um só com tempo em Dev, o
+outro só em Rev) — cada um virava sua própria linha, com os outros 2 blocos
+zerados. Isso mudou para um **empacotamento guloso**: dentro de cada grupo
+`(Chave, Agrupada)`, os colaboradores são processados na ordem de
+`usuariosSelecionados` (ordem de cadastro); para cada um, `Montar` procura,
+entre as linhas já abertas para aquele grupo, a primeira cujos slots
+(Dev/Rev/Qa) que ele ocupa — onde tem `segundos > 0` — estejam **todos
+livres**; se achar, ele entra nessa linha, preenchendo só os slots que ocupa
+(sem sobrescrever os já preenchidos por outro colaborador); senão, abre uma
+linha nova. Um colaborador sem tempo em nenhuma categoria sempre abre linha
+própria (preserva o "–"/"Nenhuma" em todos os blocos). Efeito: colaboradores
+em categorias diferentes da mesma descrição/tag **mesclam numa única linha**
+(um por bloco); dois colaboradores na **mesma** categoria da mesma
+descrição/tag continuam em linhas separadas (conflito, mesmo comportamento de
+antes). Cada `BlocoCategoriaSprint` agora carrega seu próprio
+`NomeExibicao`/`Sigla`/`Cor` (`null` quando o bloco está vazio); o desempate de
+ordenação das linhas tag-agg trocou de "índice do colaborador da linha" para
+`MenorIndiceColaborador` (o menor índice entre os colaboradores presentes nos
+blocos preenchidos), já que uma linha pode ter mais de um colaborador agora.
+A grid é ordenada pelo **número do código** (`ServicoSprint.NumeroCodigo`
+extrai os dígitos de `Codigo` — `.ThenBy(t => t.Agrupada ? 0 :
+NumeroCodigo(t.Codigo))` antes do desempate por string): `TEL - 994 →
+TEL - 1000 → TEL - 1118` (antes era ordenação por string, e `TEL - 1118` vinha
+antes de `TEL - 994`); linhas de descrição por nº crescente de código, as sem
+código depois, tag-agg por último na ordem de `MenorIndiceColaborador`. Só na
+Web API + frontend. O cálculo de capacidade e o formato da tela estão em
+§4.9.
+
+### Detalhes de domínio importantes
+
+Regras que valem tanto para quem lê/grava os `.ini` quanto para a Web API que
+os consome (até 2026-09-08 também valiam para o console, removido — ver §7):
+
+- **`RegistroTempoDto.Duracao`** (segundos): **valor negativo = timer em
+  execução** — isolado por `ServicoAgrupamento.ObterEmAndamento`, fora dos
+  totais.
+- **`RegistroTempoDto.Tags`**: já resolvidas como nomes pela API do Toggl.
+- Rótulos: `(sem descrição)`, `(sem tag)`.
+- **Chave do usuário no INI** (`[Usuario:<chave>]`): `nome` só com letras/dígitos,
+  minúsculo, sufixo numérico em colisão (`ServicoUsuarios.GerarChaveUnica`).
+  `NomeExibicao` é o rótulo dos relatórios.
+- **Agrupamento** (interno e no INI): `descricao`, `tag`, `ambos`.
+- **`ConfiguracaoApp.TagsDetalhadas`**: lista livre de tags (comparação
+  `OrdinalIgnoreCase`); persistida como `TagsDetalhadas=tag1,tag2` no INI (vazia
+  = `TagsDetalhadas=`). Com agrupamento "ambos": essas tags aparecem
+  detalhadas em "Por descrição" e ficam totalmente fora de "Por tag"; as
+  demais tags não aparecem em "Por descrição", só em "Por tag" (nome do campo
+  mantido por compatibilidade com o INI).
+- **"Por descrição" filtra por `TagsDetalhadas`**: com agrupamento "ambos", só
+  entram entradas com pelo menos uma tag em `TagsDetalhadas` (as demais só
+  contam no total de "Por tag"); com agrupamento "descricao" puro, entram
+  todas (não há "Por tag" para compensar) — regra em
+  `ServicoAgrupamento.AgruparPorDescricaoComTag`, consumida por
+  `RelatorioEndpoints` (`GET /api/relatorio`). A **ordenação por prefixo
+  "TEL"** (TEL primeiro, depois por tempo decrescente) não é feita no
+  back-end — é aplicada só na exibição, pelo frontend (`curarPorDescricao`,
+  ver §5.3).
+- **Descrições "TEL" normalizadas já na chave de agrupamento**: "TEL-0000-AA" /
+  "TEL-0000 - AA" / "TEL - 0000 - AA" viram sempre `"TEL - 0000 - AA"` antes de
+  somar os tempos — não só na exibição
+  (`ServicoAgrupamento.NormalizarDescricaoTel`/`ChaveDescricao`). Só reformata
+  quando há dígitos logo após "TEL"; não mexe em "TELA", "TELEFONE" etc.
+- **Usuários vivem num arquivo próprio, `TogglUsuarios.ini`, separado dos
+  parâmetros do relatório desde 2026-09-07** (`CarregadorUsuariosIni.cs` — só
+  as seções `[Usuario:<chave>]`, nada de `[Geral]`).
+  `CarregadorConfiguracaoIni.Carregar(caminho, caminhoUsuarios)`/
+  `.Salvar(caminho, caminhoUsuarios, configuracao)` delegam a leitura/escrita
+  de `configuracao.Usuarios` para `CarregadorUsuariosIni` — o modelo em
+  memória (`ConfiguracaoApp.Usuarios`) não muda, só onde ele é persistido.
+  **Migração automática, sem intervenção manual**: se `TogglUsuarios.ini`
+  ainda não existe mas o arquivo de parâmetros informado tem seções
+  `[Usuario:*]` (formato anterior a 2026-09-07), `CarregadorUsuariosIni.
+  Carregar` extrai e grava essas seções no novo arquivo na primeira leitura —
+  mesmo espírito da migração silenciosa de nome de arquivo do item 18, mas
+  aqui é uma migração de **conteúdo** entre dois arquivos, não uma
+  renomeação. O arquivo de parâmetros perde as seções `[Usuario:*]` (que
+  ficam só como legado, até a migração rodar) na primeira vez que for salvo
+  depois disso, já que `Salvar` não as escreve mais ali.
+- **`ConfiguracaoUsuario` tem três campos exclusivos da versão web**: `Sigla`
+  (string curta, usada como rótulo nas células do Gantt), `Cor` (hex, cor de
+  fundo dessas células) e `Selecionado` (`bool`, default `true` — decide se o
+  usuário entra na próxima consulta). Persistidos como `Sigla=`/`Cor=`/
+  `Selecionado=` na seção `[Usuario:<chave>]` de `TogglUsuarios.ini`, lidos
+  com `AnalisadorIni.ObterOuPadrao` (`Selecionado` via `bool.TryParse`,
+  default `true` se ausente ou inválido — usuários criados antes desse campo
+  existir continuam selecionados). `CarregadorUsuariosIni.Salvar` grava os
+  três campos sempre. `ServicoUsuarios.SiglaEmUso` (mesmo padrão de
+  `NomeEmUso`/`TokenEmUso`, mas ignorando siglas vazias) valida unicidade na
+  Web API.
+- **`TokenApi` é criptografado em repouso desde 2026-09-06**
+  (`CriptografiaToken.Criptografar`/`Descriptografar`, AES, chave derivada de
+  `CHAVE_CRIPTOGRAFIA` — renomeada de `TOGGL_CHAVE_CRIPTOGRAFIA` em 2026-09-07
+  — ou uma chave padrão embutida se a env var não estiver configurada —
+  proteção básica, não resiste a quem lê o código-fonte público). A env var é
+  lida via `Environment.GetEnvironmentVariable` (não `IConfiguration`), então
+  em dev no Visual Studio vai no bloco `environmentVariables` do
+  `launchSettings.json` (ver §4.8). No mesmo rename de 2026-09-07 a
+  string-semente de `CriptografiaToken.ChavePadrao` também passou a citar
+  `CHAVE_CRIPTOGRAFIA` — isso **rotacionou a chave padrão embutida**, então
+  `.ini` com tokens `enc:` gravados **sem** env var configurada (chave padrão
+  antiga) precisam ter os tokens reinseridos. Não afeta quem usa
+  `CHAVE_CRIPTOGRAFIA`/`TOGGL_CHAVE_CRIPTOGRAFIA` com o mesmo valor de antes,
+  nem o Cloud Run (onde `dados/` é efêmero de qualquer jeito, ver
+  `toggl-report-infra`). Aplicado em `CarregadorUsuariosIni` (`TogglUsuarios.ini`, desde
+  2026-09-07 — antes era `CarregadorConfiguracaoIni`) e `CarregadorCacheIni`
+  (`TogglRelatorioData.ini`/`TogglGantData.ini`). Valor gravado com prefixo
+  `enc:`; ao ler, se não tiver esse prefixo, trata como texto puro (arquivo
+  de antes desta mudança) — migra sozinho pra criptografado no próximo
+  `Salvar`, mesmo padrão de migração silenciosa já usado pra renomear
+  arquivo (§7, item 18).
+- **Cache (`CacheConsulta`/`UsuarioCacheado`) guarda dado cru, indexado por
+  `Chave` de usuário** (não por `NomeExibicao`, que pode ser editado):
+  `DataInicio`/`DataFim` da consulta em `[Geral]`, e uma seção
+  `[Usuario:<chave>]` por usuário com `NomeExibicao`, `TokenApi` e `Registros`
+  (JSON compacto do `List<RegistroTempoDto>`, sem nenhum agrupamento aplicado).
+  Bater os parâmetros (`ServicoConsulta.CacheCorrespondeAosParametros`) exige
+  mesmo período **e** todo usuário atual achar seu par no cache por `Chave` +
+  `TokenApi` (mesmo tamanho de lista dos dois lados).
+- **Limite de 30 requisições/hora é por processo, não persistido**:
+  `LimitadorRequisicoes` guarda os timestamps em memória
+  (`Dictionary<string, List<DateTime>>` estático); reinicia a cada execução.
+  Não é o mesmo mecanismo do retry de 429 em `ClienteApiToggl` (esse continua
+  ativo e trata o limite que a própria API do Toggl impõe).
+- **Erros da API do Toggl não usam exceptions**: `ClienteApiToggl` devolve
+  `ResultadoApiToggl<T>` (`Ok`/`Falha`) — 401 vira `Falha` e o consumidor
+  (hoje, os endpoints da Api) reporta e pula o usuário, sem abortar a
+  consulta inteira; 429 espera `Retry-After` (fallback 5 s) e tenta **uma
+  vez** a mais antes de desistir; rede/HTTP não-2xx/JSON inválido também
+  viram `Falha` com mensagem.
+
+### `TogglRelatorioParametros.ini` (exemplo) — em `AppContext.BaseDirectory/dados`
+
+```ini
+[Geral]
+DataInicioAnterior=2026-08-01
+DataFimAnterior=2026-08-31
+AgrupamentoPadrao=ambos
+TagsDetalhadas=Cliente X,Urgente
+```
+
+### `TogglUsuarios.ini` (exemplo) — em `AppContext.BaseDirectory/dados`
+
+Compartilhado pelo relatório, pelo Gantt e pelo Sprint (§4.6/§4.9) — não tem
+`[Geral]`, só seções `[Usuario:<chave>]`:
+
+```ini
+[Usuario:joao]
+NomeExibicao=Joao Silva
+TokenApi=enc:abcdef1234567890...
+Sigla=JS
+Cor=#5B82F6
+Selecionado=True
+```
+
+### `TogglRelatorioData.ini` (exemplo) — em `AppContext.BaseDirectory/dados`
+
+```ini
+[Geral]
+DataInicio=2026-08-01
+DataFim=2026-08-31
+
+[Usuario:joao]
+NomeExibicao=Joao Silva
+TokenApi=abcdef1234567890
+Registros=[{"id":123456789,"workspace_id":1,"project_id":null,"description":"TEL-0433-AA","duration":3725,"tags":["Cliente X"],"start":"2026-08-01T13:00:00Z","stop":"2026-08-01T14:02:05Z"}]
+```
+
+`AppContext.BaseDirectory` é o diretório do **executável que está rodando** —
+hoje só a Web API tem essa pasta `dados/` própria (o console, que também
+tinha a sua, foi removido — ver §7).
 
 ---
 
@@ -535,9 +382,8 @@ gerada via `AddEndpointsApiExplorer` + `AddSwaggerGen`/`UseSwagger`/
 `UseSwaggerUI`, `RoutePrefix = "swagger"`).
 
 Cria sua **própria** pasta `dados/` via `CaminhosDados.CaminhoConfiguracao/
-CaminhoCache(AppContext.BaseDirectory)` — mesmo helper do núcleo que o console
-usa, mas com o `AppContext.BaseDirectory` da própria API (pasta diferente do
-console).
+CaminhoCache(AppContext.BaseDirectory)`, o helper do núcleo (§3), com o
+`AppContext.BaseDirectory` da própria API.
 
 ### 4.2 Endpoints
 
@@ -617,8 +463,7 @@ diferenciação por status vindo da API externa, já que ela não foi chamada).
 }
 ```
 `porDescricao`/`porTag` só vêm preenchidos se o `agrupamento` salvo incluir,
-respectivamente, `descricao`/`tag` (mesma condicional do console) — senão vêm
-`[]`/`{}`. **`emAndamento` está em snake_case** (`workspace_id`, `project_id`,
+respectivamente, `descricao`/`tag` — senão vêm `[]`/`{}`. **`emAndamento` está em snake_case** (`workspace_id`, `project_id`,
 `description`, `duration`, `tags`, `start`, `stop`) — é o `RegistroTempoDto`
 cru, cujos `[JsonPropertyName]` batem com a API do Toggl e por isso **não**
 seguem a política camelCase do resto da API (System.Text.Json respeita o
@@ -633,23 +478,22 @@ núcleo:
   "totalGeralSegundos": 3600
 }
 ```
-Não reordena/normaliza "TEL" (mesmo comportamento do console — busca opera
-sobre o texto cru da descrição).
+Não reordena/normaliza "TEL" — busca opera sobre o texto cru da descrição.
 
 ### 4.3 Decisões de arquitetura desta camada
 
 | Decisão | Motivo |
 |---|---|
 | **Minimal APIs, não Controllers** | Projeto pequeno e focado (12 rotas); evita o boilerplate de MVC. Um arquivo `Map*Endpoints` por grupo em `Endpoints/`. |
-| **Stateless entre requisições — nunca mantém registros em memória entre chamadas** | Toda leitura de relatório/busca **relê `TogglRelatorioData.ini`** via `CarregadorCacheIni`/`ServicoConsulta.CarregarRegistrosDoCache`. Isso evita sessão/estado de servidor e reaproveita o mesmo cache do console sem precisar inventar um mecanismo novo. |
+| **Stateless entre requisições — nunca mantém registros em memória entre chamadas** | Toda leitura de relatório/busca **relê `TogglRelatorioData.ini`** via `CarregadorCacheIni`/`ServicoConsulta.CarregarRegistrosDoCache`. Isso evita sessão/estado de servidor sem precisar inventar um mecanismo novo. |
 | **`GET /api/relatorio`/`GET /api/busca` exigem cache prévio (409 se não bate)** | Em vez de disparar uma consulta implícita, força o cliente (frontend) a chamar `POST /api/consultas` primeiro — mantém explícito quando uma requisição HTTP externa acontece, essencial para respeitar o rate limit. |
 | **`PUT /api/configuracao` recarrega a config antes de sobrescrever** | Preserva `Usuarios` (gerido por endpoints próprios) mesmo que o payload do PUT não os inclua. |
-| **`ignorarValidacao` no lugar do prompt "salvar assim mesmo?" do console** | Não há como fazer uma pergunta de sim/não em uma chamada HTTP síncrona; o cliente decide de antemão e sinaliza via flag. |
+| **`ignorarValidacao` em vez de uma pergunta interativa** | Não há como fazer uma pergunta de sim/não em uma chamada HTTP síncrona (o console, quando existia, perguntava "salvar assim mesmo?"); o cliente decide de antemão e sinaliza via flag. |
 | **CORS liberado (`AllowAnyOrigin/Header/Method`)** | Uso exclusivamente local; o frontend roda em outra porta (Vite) e precisa chamar sem bloqueio. Não apropriado se a API algum dia for exposta fora de `localhost`. |
 | **`JsonStringEnumConverter` global** (`ConfigureHttpJsonOptions`) | Sem isso, `StatusConsultaUsuario` seria serializado como número (`0`/`1`/...); com o conversor, `"Sucesso"`/`"Erro"`/etc. — mais legível no Swagger e no frontend. |
 | **`Swashbuckle.AspNetCore`** | Única dependência NuGet do repositório; o pacote `Microsoft.OpenApi` que ele traz (v2.x) usa o namespace `Microsoft.OpenApi.OpenApiInfo` (sem `.Models` — mudou entre versões do OpenApi.NET; atenção ao atualizar o pacote). |
 | **Porta fixa 5180** (`launchSettings.json`) | O frontend precisa de uma URL conhecida sem configuração adicional. |
-| **`dados/` própria, independente da do console** | Simplicidade: cada executável só enxerga `AppContext.BaseDirectory` de si mesmo; replicar o comportamento (não o arquivo físico) é o que a consigna pediu. |
+| **`dados/` própria, ao lado do executável** | Simplicidade: a Api só enxerga o `AppContext.BaseDirectory` de si mesma via `CaminhosDados` (§3). |
 
 ### 4.4 Tratamento de erros HTTP
 
@@ -670,10 +514,11 @@ sobre o texto cru da descrição).
   /api/relatorio`/`GET /api/busca` sem cache correspondente ao período pedido.
 - **500** (`Results.Problem`): falha de I/O ao gravar o `.ini`
   (`IOException`/`UnauthorizedAccessException`) — mesmo `try/catch` não-fatal
-  do console, mas aqui vira erro de resposta (não há como "avisar e seguir"
-  numa requisição síncrona que precisava do resultado salvo); mesmo
-  tratamento em `POST /api/dados/restaurar` desde o item 25 (antes subia
-  como exceção não tratada).
+  usado pelos carregadores do núcleo (`AnalisadorIni.Escrever`), mas aqui vira
+  erro de resposta (não há como "avisar e seguir" numa requisição síncrona
+  que precisava do resultado salvo); mesmo tratamento em
+  `POST /api/dados/restaurar` desde o item 25 (antes subia como exceção não
+  tratada).
 
 ### 4.5 Limitações conhecidas desta camada
 
@@ -682,13 +527,17 @@ sobre o texto cru da descrição).
 - Sem autenticação **se `AUTH:USUARIO`/`AUTH:SENHA` não estiverem
   configurados** (default) — qualquer processo com acesso à rede pode chamar
   a API. Ver §4.8 para ligar a autenticação; os tokens em `dados/*.ini` já
-  ficam criptografados em repouso independente disso (ver §2.4).
+  ficam criptografados em repouso independente disso (ver §3).
 - Enum documentado no Swagger pode aparecer como inteiro no schema (a
   anotação `[SwaggerDoc]` não propaga automaticamente o
   `JsonStringEnumConverter` para a geração de schema do Swashbuckle) — a
   serialização real da resposta, porém, é sempre string (verificado).
-- Mesmas limitações de fundo do núcleo/console: sem paginação, sem nome de
+- Mesmas limitações de fundo do núcleo: sem paginação, sem nome de
   projeto/cliente, rate limit só em memória por processo.
+- `TogglRelatorioParametros.ini`, `TogglRelatorioData.ini` e
+  `TogglUsuarios.ini` guardam dado sensível — o `TokenApi` é criptografado em
+  repouso (§3), mas os três são tratados como segredo mesmo assim (todos no
+  `.gitignore`, ver §8), dentro de `dados/` ao lado do executável.
 
 ### 4.6 Gráfico de Gantt (`GantEndpoints`/`TogglReport.Nucleo/Gant`)
 
@@ -852,8 +701,8 @@ Adicionada em 2026-09-06 para viabilizar o deploy público no Cloud Run
 ### 4.9 Sprint (`SprintsEndpoints`/`SprintCategoriasEndpoints`/`SprintConsultasEndpoints`/`SprintAcompanhamentoEndpoints`, `TogglReport.Nucleo/Sprint`)
 
 Terceira visualização dos mesmos dados do Toggl (2026-09-07), seguindo o molde
-do Gantt em todas as camadas — só na Web API + frontend, sem equivalente no
-console. Diferente do relatório e do Gantt, o Sprint tem **gestão** (CRUD de
+do Gantt em todas as camadas — só na Web API + frontend. Diferente do
+relatório e do Gantt, o Sprint tem **gestão** (CRUD de
 sprints) além do acompanhamento. Parâmetros e cache são próprios e
 independentes dos do relatório/Gantt; o único ponto compartilhado é a lista de
 usuários (`TogglUsuarios.ini`, filtrada por `Selecionado` antes de repassar
@@ -926,16 +775,22 @@ se aplica.
 que devolve o `ResultadoSprint` — `Cabecalho` + `Linhas` (tarefas) +
 `Colaboradores`):
 
-> As cores de status do Sprint são hex fixos **definidos uma vez** no topo de
-> `SprintView.tsx` — não são tokens do tema (o `success` do tema é dourado):
-> `const COR_PENDENTE = '#EA4335'` (vermelho), `const COR_CONCLUIDO = '#34A853'`
-> (verde) e `const COR_TAG = '#F57C00'` (laranja, usada nas linhas de
-> agrupamento por tag). Usadas no card, na coluna "Disponível" negativa, nas
-> colunas Pendentes/Concluídas da tabela de colaboradores, nas etiquetas
+> As cores de status do Sprint são consts **definidas uma vez** no topo de
+> `SprintView.tsx`: `const COR_PENDENTE = CORES.corPendente`,
+> `const COR_CONCLUIDO = CORES.corConcluido`, `const COR_TAG = CORES.corTag`.
+> **Desde 2026-09-08** (ver §7, último item) essas três cores viraram tokens
+> do tema — `theme.ts` ganhou `CORES.corPendente = '#EA4335'` (vermelho),
+> `CORES.corConcluido = '#34A853'` (verde) e `CORES.corTag = '#F57C00'`
+> (laranja) — em vez de literais hex soltos no `SprintView.tsx`; os valores
+> não mudaram, só a origem. Usadas no card, na coluna "Disponível" negativa,
+> nas colunas Pendentes/Concluídas da tabela de colaboradores, nas etiquetas
 > fixas de Prioridade/Situação do grid (`EtiquetaFixa`) e no badge de
-> Prioridade (`BadgeTexto`). Não repetir o hex solto em nenhum outro lugar.
-> Ao lado dessas consts há também `const LARGURA_CELULA = '2.5rem'` — a
-> largura comum das colunas PRE, REA e badge de cada grupo DEV/REV/QA.
+> Prioridade (`BadgeTexto`). Confirmado por grep: nenhuma cor hex solta sobra
+> fora de `theme.ts` em todo `src/` do frontend (o mesmo vale para
+> `COR_PADRAO_USUARIO` de `UsuarioFormDialog.tsx`, que passou a apontar para
+> `CORES.accentAzul`). Ao lado dessas consts há também
+> `const LARGURA_CELULA = '2.5rem'` — a largura comum das colunas PRE, REA e
+> badge de cada grupo DEV/REV/QA.
 
 - **Card do sprint** (`CabecalhoSprint`): Sprint ·
   Horas/dia · Dias úteis · Margem, mais **`Início`** e **`Fim`** como campos
@@ -968,32 +823,38 @@ que devolve o `ResultadoSprint` — `Cabecalho` + `Linhas` (tarefas) +
     (nome completo) · (sigla, `BadgeSigla`) · Tempo por colaborador (`${td} h`,
     ex-"Total") · Realizado (`formatarDuracao`) · Disponível (Tempo por
     colaborador − Realizado, derivada no front; quando **> 0** texto **verde
-    `COR_CONCLUIDO`** + bold — mesmo tom de "Concluídas" —, **< 0** vermelho
-    `COR_PENDENTE` + bold com `-`, `0` neutro) · Pendentes · Concluídas**;
-    rodapé soma só Pendentes e
-    Concluídas; sem colunas por dia. A 2ª coluna usa o **mesmo componente
-    `BadgeSigla`** que o grid de tarefas (extraído, não duplicado — ver
-    abaixo).
-- **Grid de tarefas** (`List<LinhaTarefaSprint> Linhas`) — **uma linha por
-  (tarefa × colaborador)**, montada por `ServicoSprint.Montar` (sem parâmetro
-  `manuais`).
-  `record LinhaTarefaSprint(string Codigo, string Descricao, string
-  NomeExibicao, string Sigla, string Cor, bool Agrupada,
+    `COR_CONCLUIDO`**, **< 0** vermelho `COR_PENDENTE` com `-`, `0` neutro) ·
+    Pendentes · Concluídas**; **desde 2026-09-08** (ver §7, último item) as
+    três colunas **Disponível, Pendentes e Concluídas** ficam **sempre em
+    negrito** (`fontWeight: 700`), mesmo quando o valor é neutro/zero — antes
+    "Disponível" só tinha negrito quando positiva/negativa, e
+    Pendentes/Concluídas nunca tinham negrito; a cor condicional não mudou.
+    Rodapé soma só Pendentes e Concluídas; sem colunas por dia. A 2ª coluna
+    usa o **mesmo componente `BadgeSigla`** que o grid de tarefas (extraído,
+    não duplicado — ver abaixo).
+- **Grid de tarefas** (`List<LinhaTarefaSprint> Linhas`), montada por
+  `ServicoSprint.Montar` (sem parâmetro `manuais`).
+  `record LinhaTarefaSprint(string Codigo, string Descricao, bool Agrupada,
   BlocoCategoriaSprint Dev, BlocoCategoriaSprint Rev, BlocoCategoriaSprint Qa)`;
-  `record BlocoCategoriaSprint(decimal PreHoras, long ReaSegundos)`.
-  `ServicoSprint.ChaveAgrupamento(registro, categorias)` devolve
-  `(string Chave, bool Agrupada)`.
-  - **Linha de descrição** (`Agrupada == false`): uma por `(descrição
-    normalizada "TEL" × colaborador)`. `Codigo`/`Descricao` vêm de
-    `SepararCodigo` — regex `^(TEL - \d+)(?: - (.+))?$` → `Codigo = "TEL - 0000"`,
-    `Descricao` = o resto; **sem casar** → `Codigo = ""`, `Descricao` = o texto
-    inteiro. O `ReaSegundos` de cada grupo DEV/REV/QA = tempo **desse
-    colaborador** nessa descrição cujas tags ∈ `categorias.Dev`/`Rev`/`Qa`
+  `record BlocoCategoriaSprint(decimal PreHoras, long ReaSegundos, string?
+  NomeExibicao, string? Sigla, string? Cor)`. **Desde 2026-09-08** (ver §7,
+  último item) o colaborador saiu do nível da linha e passou para cada
+  bloco — uma linha pode **mesclar até 3 colaboradores**, um por bloco
+  DEV/REV/QA, em vez de sempre uma linha por colaborador (ver o algoritmo de
+  empacotamento em §3). `ServicoSprint.ChaveAgrupamento(registro, categorias)`
+  devolve `(string Chave, bool Agrupada)`.
+  - **Linha de descrição** (`Agrupada == false`): por `(descrição normalizada
+    "TEL")`, mesclando colaboradores de categorias diferentes numa linha só
+    (§3). `Codigo`/`Descricao` vêm de `SepararCodigo` — regex
+    `^(TEL - \d+)(?: - (.+))?$` → `Codigo = "TEL - 0000"`, `Descricao` = o
+    resto; **sem casar** → `Codigo = ""`, `Descricao` = o texto inteiro. O
+    `ReaSegundos` de cada grupo DEV/REV/QA = tempo **do colaborador daquele
+    bloco** nessa descrição cujas tags ∈ `categorias.Dev`/`Rev`/`Qa`
     (`OrdinalIgnoreCase`; tag em mais de uma lista conta em cada).
   - **Linha tag-agg** (`Agrupada == true`, só quando `agrupamento` = `tag` ou
-    `ambos` e a tag não está em `TagsDetalhadas`): uma por `(tag ×
-    colaborador)`. `Codigo = ""`, `Descricao` = nome da tag. **Todo** o tempo
-    do colaborador naquela tag vai para **um único** grupo: **QA** se esse
+    `ambos` e a tag não está em `TagsDetalhadas`): por `(tag)`, mesma
+    mesclagem. `Codigo = ""`, `Descricao` = nome da tag. **Todo** o tempo de
+    cada colaborador naquela tag vai para **um único** grupo: **QA** se esse
     colaborador tem ≥ 1 apontamento no sprint com tag ∈ `categorias.Qa`
     (pré-passo `colaboradoresComQa`), senão **DEV**. **REV nunca recebe
     tag-agg.**
@@ -1001,8 +862,11 @@ que devolve o `ResultadoSprint` — `Cabecalho` + `Linhas` (tarefas) +
     `TEL - 1118` vinha antes de `TEL - 994`): linhas de descrição primeiro (as
     com `Codigo` antes das sem; depois por `NumeroCodigo(Codigo)` crescente —
     helper que extrai só os dígitos de `Codigo` —, depois desempate por
-    `Codigo`/`Descricao` string), então as tag-agg (pela ordem do colaborador
-    em `usuariosSelecionados`, depois por `Descricao`). Resultado:
+    `Codigo`/`Descricao` string), então as tag-agg (pelo **menor índice entre
+    os colaboradores presentes nos blocos preenchidos da linha** —
+    `MenorIndiceColaborador`, trocado de "índice do colaborador da linha" em
+    2026-09-08 porque uma linha pode ter mais de um colaborador desde a
+    mesclagem —, depois por `Descricao`). Resultado:
     `TEL - 994 → TEL - 1000 → TEL - 1118`.
   - Timers em andamento (`Duracao < 0`) ignorados. Cálculo de capacidade
     (`margem`/`td`/`ct`) **intacto**.
@@ -1038,8 +902,14 @@ que devolve o `ResultadoSprint` — `Cabecalho` + `Linhas` (tarefas) +
       marcar risca a **descrição** da linha (`line-through` + `color:
       text.disabled`). O conjunto de linhas marcadas é persistido em
       `localStorage` (chave `sprint-tachados-<chaveSprint>`, id da linha =
-      `codigo∙descricao∙nomeExibicao`, montado por `idLinhaTarefa`) e
-      sobrevive a fechar a janela. **A marcação é isolada por sprint**: a
+      `codigo∙descricao∙índice-de-ocorrência`, montado por `idLinhaTarefa`) e
+      sobrevive a fechar a janela. **Desde 2026-09-08** (ver §7, último item)
+      o id trocou o 3º componente de `nomeExibicao` para um **índice de
+      ocorrência** daquela `(codigo, descricao)` na lista completa de
+      tarefas — a mesclagem de linhas por categoria (§3) tira o "um
+      colaborador por linha" que o id antigo assumia; o índice é calculado
+      sobre `resultado.tarefas` completo (não a lista filtrada pela busca),
+      para não mudar quando a busca liga/desliga. **A marcação é isolada por sprint**: a
       chave inclui `chaveSprint` (o identificador único de `[Sprint:<chave>]`
       de `TogglSprints.ini`), então cada sprint tem seu próprio conjunto de
       linhas riscadas e trocar de sprint no passo "Sprints" troca a chave —
@@ -1077,6 +947,26 @@ que devolve o `ResultadoSprint` — `Cabecalho` + `Linhas` (tarefas) +
       `contarDigitos` / `formatarCodigo` + `larguraCodigo` (reduce sobre
       `tarefas`). **Não há coluna "Tag"** — nas linhas tag-agg o nome da tag
       aparece na própria "Descrição", com "Código" vazio.
+    - **Código e Descrição em vermelho nas linhas duplicadas por colisão de
+      posição** (2026-09-08, ver §7, item 31; Descrição estendida em
+      2026-09-09): quando a mesclagem gulosa de `ServicoSprint.Montar` (§3)
+      abre **mais de uma linha** para a mesma `(codigo, descricao)` porque
+      dois colaboradores disputam a **mesma** posição DEV/REV/QA, o texto das
+      colunas **Código e Descrição** dessas linhas fica em `CORES.corPendente`
+      (`#EA4335`, o mesmo vermelho de "Pendentes") + `fontWeight: 700` —
+      **mesma condição (`codigoDuplicado`) e mesmo token de cor** nas duas
+      colunas, sem lógica duplicada; só a coluna Código tem o `<Tooltip>`
+      explicando o motivo (a Descrição mantém seu próprio `<Tooltip>` com o
+      texto completo). Na Descrição, quando a linha também está **tachada**
+      (checkbox marcado), o `line-through`/`text.disabled` do tachado é
+      aplicado primeiro e a cor de duplicidade por cima — a linha fica riscada
+      e vermelha ao mesmo tempo. Detecção em `calcularColisaoPosicao(tarefas)`
+      (`features/sprint/calculos.ts`, função pura): agrupa as linhas por
+      `codigo∙descricao∙agrupada` e marca **todas** as linhas de um grupo em
+      que alguma posição (`dev`/`rev`/`qa`) tenha `nomeExibicao` preenchido em
+      ≥ 2 linhas. Linha extra **vazia** (colaborador sem categoria) **não**
+      conta como colisão. Só apresentação — a mesclagem, a ordenação e o
+      cálculo de capacidade não mudaram.
     - **PRE / REA** por grupo: mesma **largura da coluna de badge**
       (`LARGURA_CELULA = '2.5rem'`), conteúdo **centralizado**. Exibem a hora
       no formato **`00h`** (2 dígitos com `padStart`, sem "m"/"s"), com
@@ -1089,11 +979,13 @@ que devolve o `ResultadoSprint` — `Cabecalho` + `Linhas` (tarefas) +
       card do sprint — `#5B82F6`) + `fontWeight: 600`; REA zero fica na cor
       padrão.
     - **badge** (coluna sem título de cada grupo, **centralizada**): componente
-      **`BadgeSigla`** — a sigla do colaborador da linha, fundo na **cor dele**,
-      cantos retos (`borderRadius: 0`, Montserrat, uppercase), `Tooltip` com o
-      nome. Só aparece no(s) grupo(s) com `reaSegundos > 0`; nos grupos sem
-      tempo aparece **"–"** em preto. É o **mesmo componente** usado na coluna
-      de sigla do card de colaboradores.
+      **`BadgeSigla`** — a sigla do colaborador **daquele bloco** (`linha.dev`/
+      `.rev`/`.qa`, cada um com seu próprio `nomeExibicao`/`sigla`/`cor` desde
+      a mesclagem de 2026-09-08 — antes lia da linha inteira), fundo na **cor
+      dele**, cantos retos (`borderRadius: 0`, Montserrat, uppercase),
+      `Tooltip` com o nome. Só aparece no(s) grupo(s) com `reaSegundos > 0`;
+      nos grupos sem tempo aparece **"–"** em preto. É o **mesmo componente**
+      usado na coluna de sigla do card de colaboradores.
 - **Busca por descrição** ("Ajuste posterior 11", 2026-09-07): botão **"Buscar
   por descrição"** no topo do acompanhamento, **antes** do "Informações" (mesmo
   estilo do botão de busca do Gantt); ao abrir, mostra um `<TextField>`
@@ -1140,7 +1032,7 @@ que devolve o `ResultadoSprint` — `Cabecalho` + `Linhas` (tarefas) +
 
 React 19 + TypeScript + MUI 9, via Vite. Consome a Web API — por padrão em
 `http://localhost:5180`, configurável via a variável de ambiente `VITE_API_URL`
-(ver §5.3) — replicando o fluxo do console: parâmetros → consulta → relatório → busca por
+(ver §5.3) — com o fluxo parâmetros → consulta → relatório → busca por
 descrição — mais fluxos equivalentes para o Gantt e para o Sprint. Navegação
 por `Tabs`: **"Usuários"** (aba fixa, selecionada por padrão na abertura — sem
 usuário cadastrado, os outros fluxos ficam bloqueados), **"Relatório"**,
@@ -1162,9 +1054,11 @@ existia antes dentro de cada Stepper foi removido quando virou aba própria.
 O passo "Acompanhamento" do Sprint mostra o card do sprint (em linha única,
 com **Pendentes**, **Concluído** e **Capacidade** em destaque), um card de
 **colaboradores** (nome completo · sigla colorida · Total · Realizado ·
-Disponível · Pendentes · Concluídas, com rodapé de totais) e um **grid com
-uma linha por (tarefa × colaborador)** — colunas **Prioridade · Situação ·
-Código · Descrição** + grupos DEV/REV/QA (`PRE · REA · badge de sigla · Sit.`).
+Disponível · Pendentes · Concluídas, com rodapé de totais) e um **grid** de
+tarefas — uma linha por descrição/tag, **mesclando colaboradores diferentes
+numa mesma linha quando ocupam categorias diferentes** (ver §4.9/§7, último
+item) — colunas **Prioridade · Situação · Código · Descrição** + grupos
+DEV/REV/QA (`PRE · REA · badge de sigla · Sit.`).
 Prioridade ("Baixa") e Situação ("Pendente") são **valores fixos coloridos**,
 sem edição. Um botão **"Buscar por descrição"** no header abre um filtro local
 (client-side, por Código + Descrição, sem consulta à API e sem trocar de view —
@@ -1181,12 +1075,13 @@ npm run build      # tsc -b && vite build
 Criado por um subagente a partir de um briefing detalhado com o contrato
 completo da API (endpoints, formatos exatos de request/response, a
 peculiaridade do snake_case em `emAndamento`, as regras de curadoria visual do
-console a replicar). Revisado manualmente após: tipos em `src/api/tipos.ts`
-conferidos contra os DTOs/records C# do back-end; lógica de ordenação "TEL
-primeiro" (`src/features/relatorio/curadoria.ts`) conferida contra
-`EscritorRelatorioConsole.ImprimirSecaoDescricao`; `npx tsc -b` e
-`npm run build` rodados e confirmados limpos por mim, não só reportados pelo
-subagente.
+console — então ainda existente — a replicar). Revisado manualmente após:
+tipos em `src/api/tipos.ts` conferidos contra os DTOs/records C# do back-end;
+lógica de ordenação "TEL primeiro" (`src/features/relatorio/curadoria.ts`)
+conferida contra o escritor de relatório do console da época (removido em
+2026-09-08 junto com o console inteiro, ver §7 — a regra sobrevive só no
+frontend, ver §3); `npx tsc -b` e `npm run build` rodados e confirmados
+limpos por mim, não só reportados pelo subagente.
 
 ### 5.2 Estrutura
 
@@ -1204,8 +1099,8 @@ toggl-report-front/src/
  │   ├─ relatorio/          # RelatorioView.tsx, RelatorioUsuarioCard.tsx (Accordion por usuário → <Table> única no corpo: colunas [checkbox] · Tag · Descrição · Tempo, linhas "por descrição" e depois "por tag" concatenadas, sem títulos de seção, célula vazia sem placeholder; "Em andamento" num bloco à parte), curadoria.ts (curarPorDescricao → { chave, descricao, tag, segundos }) + useRelatorio.ts
  │   ├─ busca/              # BuscaPanel.tsx + useBusca.ts (busca do relatório — layout de lista)
  │   ├─ gant/               # ParametrosGantForm.tsx, GantView.tsx (tabela própria, com busca embutida; linhas compactas, descrição truncada em 50 chars + Tooltip) + useParametrosGant.ts/useConsultaGant.ts/useGant.ts
- │   ├─ sprint/             # SprintsPanel.tsx (listagem + seleção de 1 sprint — passo 1 do Stepper), SprintFormDialog.tsx (cadastro/edição em modal, molde UsuarioFormDialog), CategoriasSprintPanel.tsx (etapa "Parâmetros" — passo 2 do Stepper: agrupamento + tags para detalhar por descrição (padrão de ParametrosForm/ParametrosGantForm) + 3 Autocomplete DEV/REV/QA, rodapé Voltar / Continuar / Salvar e continuar — os dois de avanço bloqueados até DEV+REV+QA terem TAG), SprintView.tsx (acompanhamento — card do sprint em linha única com destaques Pendentes/Concluído/Capacidade, card de colaboradores (nome completo · BadgeSigla · Tempo por colaborador · Realizado · Disponível · Pendentes · Concluídas + rodapé de somas), grid com uma linha por (tarefa × colaborador), rolagem horizontal, linhas divisórias entre todas as colunas + colunas compactadas (Descrição absorve o resto), 1ª coluna de checkbox que risca a descrição e persiste em localStorage (via tachados.ts), colunas Prioridade (badge BadgeTexto verde "Baixa" / laranja "Tag") · Situação (EtiquetaFixa; "Pendente" / "Tag" laranja / "–"/"Nenhuma" nos grupos vazios) · Código · Descrição + grupos DEV/REV/QA (PRE/REA hora resumida + Tooltip, BadgeSigla), botão "Buscar por descrição" (filtro local client-side por Código+Descrição, só a grid, sem consulta/sem view nova) antes do botão "Informações" → modal de cálculo; BadgeSigla, BadgeTexto e EtiquetaFixa são componentes locais reusados; padding da coluna Descrição igualado (px: 0.5), campos do card em h6/primary.main, "Disponível" verde quando > 0), tachados.ts (lerTachados/gravarTachados/limparTachados/idLinhaTarefa — único uso de localStorage no projeto, tudo em try/catch) + useSprints.ts/useCategoriasSprint.ts/useConsultaSprint.ts/useSprint.ts
- │   └─ dados/              # RodapeDownloads.tsx (download único da pasta dados/ compactada + versão do app), ImportarDadosDialog.tsx (upload do .zip quando não há usuário cadastrado)
+ │   ├─ sprint/             # SprintsPanel.tsx (listagem + seleção de 1 sprint — passo 1 do Stepper), SprintFormDialog.tsx (cadastro/edição em modal, molde UsuarioFormDialog), CategoriasSprintPanel.tsx (etapa "Parâmetros" — passo 2 do Stepper: agrupamento + tags para detalhar por descrição (padrão de ParametrosForm/ParametrosGantForm) + 3 Autocomplete DEV/REV/QA, rodapé Voltar / Continuar / Salvar e continuar — os dois de avanço bloqueados até DEV+REV+QA terem TAG), SprintView.tsx (acompanhamento — card do sprint em linha única com destaques Pendentes/Concluído/Capacidade, card de colaboradores (nome completo · BadgeSigla · Tempo por colaborador · Realizado · Disponível · Pendentes · Concluídas, as 3 últimas sempre em negrito desde 2026-09-08 + rodapé de somas), grid com uma linha por descrição/tag — mesclando colaboradores que ocupam categorias Dev/Rev/Qa diferentes numa mesma linha desde 2026-09-08, ver §4.9 —, rolagem horizontal, linhas divisórias entre todas as colunas + colunas compactadas (Descrição absorve o resto), 1ª coluna de checkbox que risca a descrição e persiste em localStorage (via tachados.ts), colunas Prioridade (badge BadgeTexto verde "Baixa" / laranja "Tag") · Situação (EtiquetaFixa; "Pendente" / "Tag" laranja / "–"/"Nenhuma" nos grupos vazios) · Código · Descrição + grupos DEV/REV/QA (PRE/REA hora resumida + Tooltip, BadgeSigla lendo o colaborador do bloco), botão "Buscar por descrição" (filtro local client-side por Código+Descrição, só a grid, sem consulta/sem view nova) antes do botão "Informações" → modal de cálculo; BadgeSigla, BadgeTexto e EtiquetaFixa são componentes locais reusados; padding da coluna Descrição igualado (px: 0.5), campos do card em h6/primary.main, cores de status (COR_PENDENTE/COR_CONCLUIDO/COR_TAG) lidas de CORES no theme.ts desde 2026-09-08), tachados.ts (lerTachados/gravarTachados/limparTachados/idLinhaTarefa — id agora usa um índice de ocorrência de (codigo, descricao) em vez do nomeExibicao, já que uma linha pode ter vários colaboradores — único uso de localStorage no projeto, tudo em try/catch) + useSprints.ts/useCategoriasSprint.ts/useConsultaSprint.ts/useSprint.ts
+ │   └─ dados/              # RodapeDownloads.tsx (rodapé: versão do app + botões "Baixar dados (.zip)" e "Importar dados (.zip)" lado a lado — o de importar abre o ImportarDadosDialog em modo "reimportação" e recarrega a página no fim), ImportarDadosDialog.tsx (upload do .zip via POST /api/dados/restaurar; props opcionais titulo/descricao/rotuloCancelar — defaults = fluxo "nenhum usuário cadastrado" disparado 1×/sessão pelo App.tsx; o RodapeDownloads passa textos de "reimportação sobre dados existentes")
  ├─ components/              # peças reutilizáveis entre features — as marcadas (2026-09-07) saíram de views por extração na auditoria (item 29)
  │   ├─ BotaoComCarregamento.tsx
  │   ├─ DialogoConfirmacao.tsx  # Dialog genérico (confirmação com Cancelar, ou só informativo com OK) — reaproveitado pela exclusão de usuário
@@ -1230,15 +1125,15 @@ toggl-report-front/src/
  ├─ utils/texto.ts           # (2026-09-07) truncar(texto, limite) — era local em GantView
  ├─ utils/tipografia.ts      # (2026-09-07) FONTE_MARCA = '"Montserrat", sans-serif' — era literal em 9 lugares
  ├─ features/consulta/useConsultaGenerica.ts  # (2026-09-07) useConsultaGenerica(fn) → { resultado, consultando, executar }; useConsulta/useConsultaGant/useConsultaSprint são one-liners
- ├─ features/sprint/calculos.ts               # (2026-09-07) formatarHoraResumida / contarDigitos / formatarCodigo / formatarDisponivel — eram locais no SprintView
+ ├─ features/sprint/calculos.ts               # (2026-09-07) formatarHoraResumida / contarDigitos / formatarCodigo / formatarDisponivel — eram locais no SprintView; + calcularColisaoPosicao (2026-09-08) → boolean[] paralelo a tarefas, true nas linhas cujo código deve ficar vermelho (colisão de posição DEV/REV/QA na mesma descrição)
  ├─ theme.ts                 # tema MUI único (claro) — CORES agora exportado (era const privado) — ver §5.5
  └─ App.tsx                  # Tabs "Usuários" (padrão)/"Relatório"/"Gant"/"Sprint"; Relatório e Gant com Stepper de 3 passos, Sprint com Stepper de 4 passos. Modo = 'usuarios'|'relatorio'|'gant'|'sprint'; ETAPAS_SPRINT = ['Sprints','Parâmetros','Consultar','Acompanhamento']; estados etapaSprintAtiva/sprintSelecionado/consultaSprintConcluida/etapaSprintLiberada + parametrosSprint (config { dev, rev, qa, agrupamento, tagsDetalhadas } elevada de CategoriasSprintPanel via onAvancar, junto de configuracao/configuracaoGant; passos 2/3 do Stepper do Sprint só liberam com parametrosSprint !== null; também passado como prop categorias para o ConsultaPanel e o SprintView do Sprint; o onConcluida do ConsultaPanel do Sprint chama limparTachados(sprintSelecionado.chave) quando resposta.veioDoCache === false)
 ```
 
 ### 5.3 Decisões técnicas
 
-- **Wizard (`Stepper`) em vez de React Router**: o fluxo é sequencial como o
-  do console; cada etapa só é liberada quando a anterior já produziu o que ela
+- **Wizard (`Stepper`) em vez de React Router**: o fluxo é sequencial —
+  cada etapa só é liberada quando a anterior já produziu o que ela
   precisa (`etapaLiberada` em `App.tsx`).
 - **`fetch` nativo com wrapper tipado** (`src/api/http.ts`), não axios — sem
   dependência extra; trata os corpos de erro (strings simples, não objetos)
@@ -1258,16 +1153,16 @@ toggl-report-front/src/
   que não resolve nomes de serviço Docker.
 - **Curadoria de exibição replicada aqui, não pedida ao back-end**:
   `porDescricao` chega cru (sem ordenação especial); `curarPorDescricao`
-  (`features/relatorio/curadoria.ts`) aplica a mesma **ordenação** do console
-  (TEL primeiro, depois por segundos decrescente) só para exibição, sem alterar
-  os dados recebidos — simetria deliberada com a separação `ServicoAgrupamento`
-  (dado) / `EscritorRelatorioConsole` (exibição) do back-end. **Desde
-  2026-09-07** (item 28) `curarPorDescricao` devolve
-  `{ chave, descricao, tag, segundos }` (era `{ chave, texto, segundos }`): a
-  descrição vai **crua** (sem o antigo prefixo `(tag) …` nas linhas não-TEL) e
-  a tag numa **coluna própria** na view. O **console mantém** o prefixo
-  `(tag) descrição` em "Por descrição" (`EscritorRelatorioConsole`, §2.4) — a
-  mudança foi só no frontend.
+  (`features/relatorio/curadoria.ts`) aplica a **ordenação** TEL primeiro,
+  depois por segundos decrescente, só para exibição, sem alterar os dados
+  recebidos — regra em `ServicoAgrupamento.NormalizarDescricaoTel` (dado,
+  §3) e replicada aqui (exibição), simetria que existia com o
+  `EscritorRelatorioConsole` do console (removido em 2026-09-08, ver §7) e
+  hoje só sobrevive nesta cópia do frontend. **Desde 2026-09-07** (item 28)
+  `curarPorDescricao` devolve `{ chave, descricao, tag, segundos }` (era
+  `{ chave, texto, segundos }`): a descrição vai **crua** (sem o antigo
+  prefixo `(tag) …` nas linhas não-TEL) e a tag numa **coluna própria** na
+  view.
 - **`RelatorioUsuarioCard` — tabela real** (2026-09-07, item 28 + refinamento):
   cada usuário continua num `<Accordion>` (nome em `color: 'primary.main'` —
   mesmo token do `<Chip color="primary">` de "Total: …" — + Chip do total no
@@ -1305,14 +1200,26 @@ toggl-report-front/src/
   checagem de `GET /api/usuarios` (já feita para o aviso "nenhum usuário
   cadastrado") vem vazia — não reabre depois se o usuário excluir todos os
   usuários manualmente, mesmo espírito do
-  `OfereceRestaurarBackupSeNecessario` do console (§2.2), que também só
-  verifica uma vez, antes do laço principal. Duas opções: escolher um `.zip`
+  `OfereceRestaurarBackupSeNecessario` que o console (removido, ver §7) tinha,
+  que também só verificava uma vez, antes do laço principal. Duas opções: escolher um `.zip`
   e importar, ou "Seguir sem importar" (fecha e segue pelo cadastro manual
   já existente). Upload via `http.postArquivo` (novo método em
   `src/api/http.ts`, `dadosApi.ts` → `restaurarDados`) — `FormData` +
   `fetch` próprio, porque o resto do wrapper (`http.get/post/put/delete`)
   sempre serializa o corpo como JSON; mesma lógica de credencial/401 dos
-  demais métodos.
+  demais métodos. **Desde 2026-09-08** o diálogo aceita props opcionais
+  `titulo`/`descricao`/`rotuloCancelar` (defaults = o fluxo acima) e é
+  **reaproveitado pelo `RodapeDownloads`** para reimportar dados **mesmo com
+  a pasta `dados/` já populada** (botão "Importar dados (.zip)" ao lado do
+  "Baixar dados (.zip)"). O endpoint `POST /api/dados/restaurar` **não
+  mudou** — `ZipArchive.ExtractToDirectory(overwriteFiles: true)` sobrescreve
+  só os arquivos presentes no `.zip` (os demais, inclusive os 3 caches de
+  consulta, ficam intactos), e nenhuma invalidação de cache está atrelada à
+  importação (`ServicoConsulta.CacheCorrespondeAosParametros` valida
+  período/usuários em tempo de consulta — cache divergente só dispara nova
+  consulta ou 409, nunca corrompe). Após a reimportação o `RodapeDownloads`
+  chama `window.location.reload()` para o estado em memória (steppers, configs
+  carregadas) refletir os arquivos novos.
 - **`RodapeDownloads` baixa via `fetch` autenticado + blob, não `<a href>` direto (2026-09-07)**:
   um link simples navegando para `/api/dados/download` nunca carrega a
   credencial — o app deliberadamente não usa cookie/sessão nem deixa o
@@ -1378,10 +1285,11 @@ toggl-report-front/src/
   posterior 11") e três blocos de destaque à direita — **Pendentes** /
   **Concluído** /
   **Capacidade** (mesmo layout; Pendentes/Concluído nas consts
-  `COR_PENDENTE = '#EA4335'` / `COR_CONCLUIDO = '#34A853'` — definidas uma vez
-  no topo de `SprintView.tsx`, não tokens do tema —, Capacidade em
-  `primary.main`; "Capacidade" era "CT" — só o rótulo mudou, valor
-  `cabecalho.ct` intacto); seção **"Colaboradores"**
+  `COR_PENDENTE`/`COR_CONCLUIDO`, definidas uma vez no topo de
+  `SprintView.tsx` — **desde 2026-09-08** apontando para `CORES.corPendente`/
+  `CORES.corConcluido` em `theme.ts` (`'#EA4335'`/`'#34A853'`), não mais
+  literais hex soltos —, Capacidade em `primary.main`; "Capacidade" era "CT"
+  — só o rótulo mudou, valor `cabecalho.ct` intacto); seção **"Colaboradores"**
   (só se `colaboradores.length > 0`, entre o card e o grid) como
   `<Table size="small">` com `<TableFooter>` — colunas **Colab.** (nome
   completo `nomeExibicao`, texto simples) **· (sigla)** (2ª coluna sem título,
@@ -1389,13 +1297,20 @@ toggl-report-front/src/
   fallback cinza — este `<Box>` é o componente **`BadgeSigla`**, o mesmo do
   grid) **· Tempo por colaborador** (`${td} h`, ex-"Total"/"TD") **· Realizado**
   (`formatarDuracao`) **· Disponível** (Tempo por colaborador − Realizado, `HHhMMmSSs`,
-  **derivada no front** — sem campo/DTO novo; **> 0** → verde `COR_CONCLUIDO` +
-  bold, **< 0** → `COR_PENDENTE` + bold com prefixo `-`, `0` neutro)
+  **derivada no front** — sem campo/DTO novo; **> 0** → verde `COR_CONCLUIDO`,
+  **< 0** → `COR_PENDENTE` com prefixo `-`, `0` neutro)
   **· Pendentes · Concluídas** (texto em
   `COR_PENDENTE` / `COR_CONCLUIDO` quando `> 0`, na linha e no rodapé — como
-  `TarefasConcluidas` agora é sempre 0, a coluna "Concluídas" fica zerada),
-  rodapé "Total" somando só Pendentes e Concluídas, sem colunas por dia; o
-  **grid tem uma linha por (tarefa × colaborador)**, dentro de um
+  `TarefasConcluidas` agora é sempre 0, a coluna "Concluídas" fica zerada).
+  **Desde 2026-09-08** as três colunas **Disponível, Pendentes e Concluídas**
+  ficam **sempre em negrito** (`fontWeight: 700`), mesmo neutras/zeradas —
+  antes só "Disponível" tinha negrito condicional e as outras duas nunca
+  tinham. Rodapé "Total" somando só Pendentes e Concluídas, sem colunas por
+  dia; o **grid tem uma linha por descrição/tag** — **desde 2026-09-08**,
+  quando colaboradores diferentes ocupam categorias (Dev/Rev/Qa) diferentes
+  da mesma descrição/tag, eles **mesclam numa única linha** (um por bloco);
+  só continuam em linhas separadas quando dois colaboradores disputam a
+  **mesma** categoria (ver o algoritmo em §3) — dentro de um
   `TableContainer` de rolagem horizontal, com **1ª coluna de checkbox** e
   colunas **Prioridade · Situação · Código · Descrição** + grupos DEV/REV/QA
   em duas linhas de `TableHead` (`rowSpan`/`colSpan`), cada grupo **PRE · REA ·
@@ -1416,8 +1331,12 @@ toggl-report-front/src/
     (`line-through` + `color: text.disabled`). Estado persistido em
     `localStorage` por `tachados.ts` (chave `sprint-tachados-<chaveSprint>` —
     **isolada por sprint**, o `chaveSprint` no fim; id da linha =
-    `idLinhaTarefa(codigo, descricao, nomeExibicao)` =
-    `codigo∙descricao∙nomeExibicao`). **Reset só em consulta real à API**:
+    `idLinhaTarefa(codigo, descricao, índiceDeOcorrencia)` =
+    `codigo∙descricao∙índice-de-ocorrência` — **desde 2026-09-08** o 3º
+    componente trocou de `nomeExibicao` para um índice de ocorrência de
+    `(codigo, descricao)` na lista completa de tarefas, já que a mesclagem de
+    linhas por categoria tira o "um colaborador por linha" que o id antigo
+    assumia). **Reset só em consulta real à API**:
     `App.tsx` chama `limparTachados` no `onConcluida` do `ConsultaPanel` do
     Sprint quando `resposta.veioDoCache === false` — carregar do cache não
     limpa. `tachados.ts` (`lerTachados`/`gravarTachados`/`limparTachados`/
@@ -1442,6 +1361,13 @@ toggl-report-front/src/
     `resultado.tarefas`; helpers `contarDigitos`/`formatarCodigo` +
     `larguraCodigo`); linhas sem código = `"—"`. **Sem coluna "Tag"** — nas
     linhas tag-agg o nome da tag vai em "Descrição" e "Código" fica vazio.
+    **Código e Descrição em vermelho** (`CORES.corPendente` + `fontWeight: 700`,
+    mesma condição `codigoDuplicado` e mesmo token nas duas colunas — só o
+    Código tem Tooltip explicando o motivo) quando a linha é uma das
+    **duplicadas por colisão de posição** — a mesma `(codigo, descricao)`
+    aberta em > 1 linha porque 2 colaboradores disputam a mesma posição
+    DEV/REV/QA (`calcularColisaoPosicao`, `calculos.ts`); linha extra só vazia
+    não conta. Ver §4.9 / §7 (2026-09-08, Descrição estendida em 2026-09-09).
   - **PRE / REA** = largura do badge (`LARGURA_CELULA = '2.5rem'`),
     centralizados, valor no formato **`00h`** (2 dígitos, `padStart`, sem
     "m"/"s") com `<Tooltip>` do `formatarDuracao` completo; PRE sempre `00h`.
@@ -1449,7 +1375,9 @@ toggl-report-front/src/
     "Tempo realizado"). **REA com `reaSegundos > 0`** fica na cor
     `primary.main` (a mesma da "Capacidade") + `fontWeight: 600`; REA zero na
     cor padrão.
-  - **badge** = **`BadgeSigla`** (sigla do colaborador, fundo na cor dele,
+  - **badge** = **`BadgeSigla`** (sigla do colaborador **daquele bloco** —
+    `linha.dev`/`.rev`/`.qa`, cada um com seu próprio `nomeExibicao`/`sigla`/
+    `cor` desde a mesclagem de 2026-09-08 —, fundo na cor dele,
     `borderRadius: 0`, Montserrat uppercase, `Tooltip` com o nome), só nos
     grupos com `reaSegundos > 0` (nos demais, "–").
   - **Ordenação** = por número do código (`ServicoSprint.NumeroCodigo` no
@@ -1552,6 +1480,10 @@ toggl-report-front/src/
 
 Tabela preservada do console antes da expansão para Web API/frontend
 (2026-09-05). Decisões específicas do núcleo/API/frontend estão em §3/§4.3/§5.3.
+**O projeto console (`TogglReport.Console`) em si foi removido do repositório
+em 2026-09-08** (ver §7, último item) — esta seção fica só como registro
+histórico de decisões tomadas quando ele ainda existia; não reflete mais o
+estado atual do código.
 
 | Decisão | Motivo |
 |---|---|
@@ -2555,6 +2487,150 @@ histórico mantido como estava escrito, sem reescrever caminhos.
       `TogglSprintCategorias.ini` / `TogglSprintData.ini` não seguem o padrão
       `Toggl<Dominio>Parametros.ini`/`Toggl<Dominio>Data.ini` do item 18 — não
       é bug, são arquivos novos, ver §8).
+30. **Remoção completa do console, mesclagem de linhas do Sprint por
+    categoria, negrito na tabela de colaboradores e centralização das cores
+    hardcoded do Sprint no tema** (2026-09-08, 4 mudanças independentes na
+    mesma rodada):
+    - **(a) Remoção do console**: a pasta `toggl-report-back/TogglReport.Console/`
+      foi apagada por inteiro — `Program.cs`, `Apresentacao/` inteira
+      (`Paleta`/`Tela`/`Prompt`/`Rotulos`/`AssistenteConfiguracao`/
+      `MenuTokenUsuario`), `Relatorios/` do console
+      (`EscritorRelatorioConsole`/`EscritorBuscaDescricao`), o `.csproj` e o
+      `icon.ico`. `toggl-report-back/TogglReport.slnx` passou a referenciar só
+      `TogglReport.Nucleo` e `TogglReport.Api` (2 projetos, não mais 3) — o
+      repositório passou a ter, na prática, só Web API + frontend por trás de
+      um núcleo compartilhado; "console" deixou de ser uma interface do
+      sistema. `dotnet build TogglReport.slnx` confirmado limpo (0 warnings)
+      só com Nucleo+Api. As regras de domínio que só estavam documentadas na
+      antiga §2.4 (chave do usuário, `TagsDetalhadas`, normalização "TEL",
+      `TogglUsuarios.ini`, criptografia de token, cache indexado por `Chave`,
+      rate limit por processo) foram preservadas e movidas para dentro de §3,
+      já que continuam válidas para o núcleo/API — nada de lógica foi
+      perdido, só a camada de apresentação de terminal. Os 3 READMEs
+      (`/README.md`, `toggl-report-back/README.md`,
+      `toggl-report-front/README.md`) foram atualizados na mesma rodada para
+      remover as referências ao console (`toggl-report-infra/README.md` não
+      foi tocado — as menções lá são ao Console do GCP, sem relação).
+    - **(b) Mesclagem de linhas do Sprint por categoria**
+      (`toggl-report-back/TogglReport.Nucleo/Sprint/`): antes, a grid de
+      acompanhamento emitia sempre uma `LinhaTarefaSprint` por
+      `(descrição/tag, colaborador)`, mesmo quando dois colaboradores só
+      ocupavam categorias (Dev/Rev/Qa) **diferentes** da mesma
+      descrição/tag — cada um virava linha própria, com os outros 2 blocos
+      zerados. `BlocoCategoriaSprint` (era
+      `record(decimal PreHoras, long ReaSegundos)`) ganhou
+      `string? NomeExibicao, string? Sigla, string? Cor` — o colaborador
+      passou a viver **no bloco**, não na linha; `LinhaTarefaSprint` perdeu
+      `NomeExibicao`/`Sigla`/`Cor` do nível da linha (ficou
+      `record(string Codigo, string Descricao, bool Agrupada,
+      BlocoCategoriaSprint Dev, Rev, Qa)`). `ServicoSprint.Montar` trocou a
+      etapa de construção das linhas por um **empacotamento guloso** por
+      `(Chave, Agrupada)`: os colaboradores são processados na ordem de
+      `usuariosSelecionados`; cada um procura, entre as linhas já abertas
+      para aquele grupo, a primeira cujos slots (Dev/Rev/Qa) que ele ocupa
+      (`segundos > 0`) estejam **todos livres** — se achar, entra nela
+      preenchendo só os slots que ocupa; senão, abre uma linha nova. Um
+      colaborador sem tempo em nenhuma categoria sempre abre linha própria
+      (preserva o "–"/"Nenhuma" em todos os blocos). Efeito: `A` (só Dev) e
+      `B` (só Rev) na mesma descrição → **1 linha**, com `Dev.NomeExibicao =
+      A` e `Rev.NomeExibicao = B`; `C` (também só Dev, mesma descrição) não
+      cabe na linha de `A` (Dev já ocupado) → abre uma 2ª linha — dois
+      colaboradores na **mesma** categoria continuam em linhas separadas
+      (mesmo comportamento de antes). O desempate de ordenação das linhas
+      tag-agg trocou de "índice do colaborador da linha"
+      (`indicePorNome[t.NomeExibicao]`) para `MenorIndiceColaborador` (o
+      menor índice entre os colaboradores presentes nos blocos preenchidos),
+      já que uma linha pode ter mais de um colaborador agora.
+      `CabecalhoSprint.TarefasPendentes` e as estatísticas de
+      `LinhaColaboradorSprint` continuam calculadas sobre os dados brutos por
+      colaborador (antes do empacotamento), sem mudança de comportamento.
+      Frontend (`src/api/tipos.ts`, `src/features/sprint/SprintView.tsx`,
+      `src/features/sprint/tachados.ts`): tipos espelham o novo formato; os
+      badges `BadgeSigla` de cada grupo DEV/REV/QA passaram a ler do
+      **bloco** correspondente (`linha.dev.nomeExibicao`/`.sigla`/`.cor`,
+      idem `rev`/`qa`) em vez da linha inteira. `idLinhaTarefa` trocou o 3º
+      parâmetro de `nomeExibicao` para um **índice de ocorrência** daquela
+      `(codigo, descricao)` na lista completa de tarefas (id vira
+      `codigo∙descricao∙índice-de-ocorrência`), calculado sobre a lista
+      completa — não a filtrada pela busca — para não mudar quando a busca
+      liga/desliga; sem isso, o antigo id (baseado em `nomeExibicao`) não
+      fazia mais sentido com uma linha carregando vários colaboradores.
+      Validado por um teste manual (harness temporário, removido depois).
+    - **(c) Negrito nas colunas Pendentes/Concluídas/Disponível**
+      (`toggl-report-front/src/features/sprint/SprintView.tsx`, tabela
+      "Colaboradores"): as colunas **Disponível**, **Pendentes** e
+      **Concluídas** passaram a ter `fontWeight: 700` **sempre** — antes,
+      "Disponível" só ficava em negrito quando positiva/negativa (neutra
+      ficava sem), e "Pendentes"/"Concluídas" nunca tinham negrito. A cor
+      condicional já existente (vermelho/verde conforme o valor) não mudou.
+    - **(d) Centralização de cores hardcoded no tema**
+      (`toggl-report-front/src/theme.ts`): `CORES` ganhou `corPendente:
+      '#EA4335'`, `corConcluido: '#34A853'`, `corTag: '#F57C00'` (mesmos
+      valores que já eram usados como consts locais `COR_PENDENTE`/
+      `COR_CONCLUIDO`/`COR_TAG` no topo de `SprintView.tsx`) — essas 3 consts
+      locais passaram a apontar para `CORES.corPendente`/`corConcluido`/
+      `corTag` em vez de repetir o literal. `UsuarioFormDialog.tsx`:
+      `COR_PADRAO_USUARIO` (era `'#5B82F6'` literal) passou a referenciar
+      `CORES.accentAzul` (token já existente, mesmo valor). Confirmado por
+      grep: nenhuma cor hex solta sobra fora de `theme.ts` em todo `src/` do
+      frontend. **Isso substitui a afirmação de rodadas anteriores** (§4.9/
+      §5.3, já corrigidas nesta atualização) de que as cores de status do
+      Sprint eram "hex fixos, não tokens do tema" — hoje são tokens.
+31. **Código em vermelho nas linhas duplicadas do Sprint + reimportação de
+    dados sobre pasta já populada** (2026-09-08, só frontend — **nenhuma
+    mudança de backend, endpoint, contrato ou lógica de cálculo**):
+    - **(a) Destaque das linhas duplicadas por colisão de posição**
+      (`features/sprint/calculos.ts` + `SprintView.tsx`): a mesclagem gulosa de
+      `ServicoSprint.Montar` (item 30b) abre mais de uma `LinhaTarefaSprint`
+      para a mesma `(codigo, descricao)` quando dois colaboradores disputam a
+      **mesma** posição DEV/REV/QA. Nova função pura
+      `calcularColisaoPosicao(tarefas) → boolean[]` (paralelo a `tarefas`):
+      agrupa por `codigo∙descricao∙agrupada` e marca `true` **todas** as linhas
+      de um grupo em que alguma posição (`dev`/`rev`/`qa`) tenha `nomeExibicao`
+      preenchido em ≥ 2 linhas (linha extra só vazia — colaborador sem categoria
+      — **não** conta). No `SprintView`, um `useMemo` calcula o array e o
+      `tarefasComId` carrega `codigoDuplicado` por linha; a célula da coluna
+      **Código** dessas linhas fica em `CORES.corPendente` (`#EA4335`) +
+      `fontWeight: 700`, com `<Tooltip>` "Código repetido: mais de um
+      colaborador ocupa a mesma posição (DEV/REV/QA) desta descrição.". Bullet
+      novo na "Regras da listagem" do modal "Informações". Validado por harness
+      temporário (5 cenários — colisão DEV, merge sem colisão, DEV disputado com
+      linha mesclada, linha vazia sem disputa, descrições distintas — todos
+      corretos) + `npm run build` limpo.
+    - **(b) Reimportação de dados existentes** (`ImportarDadosDialog.tsx` +
+      `RodapeDownloads.tsx`): `ImportarDadosDialog` ganhou props opcionais
+      `titulo`/`descricao`/`rotuloCancelar` (defaults = o fluxo "nenhum usuário
+      cadastrado" do `App.tsx`, inalterado). `RodapeDownloads` ganhou um botão
+      **"Importar dados (.zip)"** ao lado de "Baixar dados (.zip)", que abre o
+      mesmo diálogo com textos de "reimportação sobre dados existentes" e, no
+      sucesso, chama `window.location.reload()`. **O endpoint `POST
+      /api/dados/restaurar` não mudou** — `ZipArchive.ExtractToDirectory(
+      overwriteFiles: true)` sobrescreve só os arquivos presentes no `.zip`;
+      os demais (inclusive `TogglRelatorioData.ini`/`TogglGantData.ini`/
+      `TogglSprintData.ini`) ficam intactos. Não há invalidação de cache
+      atrelada à importação; `ServicoConsulta.CacheCorrespondeAosParametros`
+      valida período/usuários em tempo de consulta, então um cache divergente
+      só dispara nova consulta ou 409 — nunca corrompe. A descrição do diálogo
+      recomenda deixar os arquivos de cache **fora** do `.zip` a menos que se
+      queira substituí-los.
+32. **Descrição também em vermelho nas linhas duplicadas do Sprint**
+    (2026-09-09, só frontend, `SprintView.tsx` — **nenhuma mudança de
+    backend, endpoint, contrato ou lógica de cálculo/detecção**): o destaque
+    em vermelho do item 31a, até então só na coluna **Código**, foi estendido
+    à coluna **Descrição** da mesma linha — **mesma condição** (`codigoDuplicado`,
+    já calculada por `calcularColisaoPosicao`) e **mesmo token de cor**
+    (`CORES.corPendente` + `fontWeight: 700`), sem duplicar a lógica de
+    detecção. Só a célula da Descrição ganhou o spread condicional extra no
+    `sx` do `<Box>` interno; o `<Tooltip>` "Código repetido: ..." continua
+    exclusivo da coluna Código (a Descrição mantém seu próprio `<Tooltip>` com
+    o texto completo, sem duplicar a explicação). Quando a linha também está
+    **tachada** (checkbox marcado), o `line-through`/`text.disabled` do
+    tachado é aplicado antes do spread de `codigoDuplicado` no objeto `sx` —
+    a cor vermelha prevalece sobre `text.disabled`, mas `textDecoration:
+    'line-through'` permanece (nenhuma das duas condições sobrescreve a outra
+    por completo). Validado com o mesmo caso de teste do item 31a (dois
+    colaboradores na mesma posição/descrição → Código e Descrição vermelhos
+    na linha) e `npm run build` limpo.
 
 `TogglReport.ini` foi adicionado em 2026-09-02 (o `README` antigo dizia que o
 config já estava ignorado, mas não estava). `ToggleData.ini` foi adicionado em
@@ -2615,17 +2691,16 @@ ou `toggl-report-back/`.
 
 ## 9. Convenções ao continuar o projeto
 
-### C# (console, API, núcleo)
+### C# (API, núcleo)
 
 - **Tudo em pt-BR**; exceções: `Program`/`Main`, `Task`/`async`,
   `[JsonPropertyName]` com nomes da API, siglas (`Dto`, `Api`, `Ini`, `Http`).
 - **Tipo explícito no lugar de `var`** sempre que o tipo puder ser nomeado.
-- **Zero dependências NuGet no console** salvo decisão explícita; a API tem
-  a exceção pontual do Swashbuckle (necessário para Swagger).
-- Toda saída/entrada de console passa por `Apresentacao/`
-  (`Paleta`/`Tela`/`Prompt`) — nunca `Console.ForegroundColor` solto.
+- **Poucas dependências NuGet**: o núcleo não tem nenhum `PackageReference`
+  salvo decisão explícita; a API tem a exceção pontual do Swashbuckle
+  (necessário para Swagger).
 - Novo serviço em `Relatorios/`/`Consultas/` do núcleo: classe estática,
-  função pura, **sem** `Console`/`Paleta`/`Tela`.
+  função pura, **sem** `Console.Write*` nem qualquer I/O de terminal.
 - Antes de duplicar uma checagem/loop de configuração, ver se há helper no
   núcleo (`ServicoChaves`, `DiasUteis`, `Agrupamento.EhValido`,
   `AnalisadorIni.Escrever`/`DividirLista`) ou em `Api/Endpoints/`
@@ -2636,14 +2711,12 @@ ou `toggl-report-back/`.
   `Problem` para os equivalentes HTTP.
 - Comentário só quando explica um *porquê* ou regra de domínio não óbvia —
   regra geral do projeto; **suspensa por completo** em todo o
-  `TogglReport.Nucleo` e nos arquivos do console/API tocados pelas rodadas de
-  2026-09-05 (itens 11–16 do histórico), por pedido explícito do usuário
-  naquela ocasião — o item 16 estendeu a limpeza aos poucos arquivos do
-  núcleo que ainda tinham XML doc comments originais (`ConfiguracaoApp`,
-  `ConfiguracaoUsuario`, `ClienteApiToggl`, `RegistroTempoDto`,
-  `ResultadoApiToggl`, `LinhaDescricao`). Arquivos do console **não** tocados
-  nessas rodadas (`AssistenteConfiguracao`, `MenuTokenUsuario`, `Prompt`)
-  mantêm seus comentários originais.
+  `TogglReport.Nucleo` desde as rodadas de 2026-09-05 (itens 11–16 do
+  histórico), por pedido explícito do usuário naquela ocasião — o item 16
+  estendeu a limpeza aos poucos arquivos do núcleo que ainda tinham XML doc
+  comments originais (`ConfiguracaoApp`, `ConfiguracaoUsuario`,
+  `ClienteApiToggl`, `RegistroTempoDto`, `ResultadoApiToggl`,
+  `LinhaDescricao`).
 - `using` só para namespaces **não** cobertos pelo `ImplicitUsings`.
 - `end_of_line = crlf` (via `.editorconfig` + `.gitattributes`),
   `charset = utf-8` (sem BOM em `.cs`).
@@ -2674,6 +2747,16 @@ ou `toggl-report-back/`.
 ---
 
 ## 10. Projeto irmão
+
+> **Nota (2026-09-08)**: o `toggl-report` **não tem mais um projeto console**
+> — `TogglReport.Console` foi removido por completo (ver §7, último item).
+> Todo o texto abaixo, que compara o console daqui com o `gerador-chave-nfe`
+> (que continua sendo um único executável de console), é **histórico**: reflete
+> o estado do repositório entre 2026-09-02 e 2026-09-08 e não descreve mais o
+> estado atual deste repositório. Fica preservado como registro de convenções
+> de estilo/código que continuam válidas fora do escopo de console (e como
+> referência útil para quem for mexer só no `gerador-chave-nfe`), no mesmo
+> espírito de §6.
 
 `C:\Projetos\gerador-chave-nfe\GeradorChaveNFe` segue as **mesmas convenções e
 o mesmo funcionamento** do console: `Paleta.cs`, `Prompt.cs` e os helpers de

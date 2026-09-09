@@ -1,5 +1,4 @@
 <Solution>
   <Project Path="TogglReport.Nucleo\TogglReport.Nucleo.csproj" />
   <Project Path="TogglReport.Api\TogglReport.Api.csproj" />
-  <Project Path="TogglReport.Console\TogglReport.Console.csproj" />
 </Solution>
