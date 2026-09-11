@@ -14,7 +14,7 @@ export interface AtualizarParametrosRequest {
     dataFim: string;
 }
 
-export interface UsuarioResumo {
+export interface UsuarioTogglResumo {
     chave: string;
     nomeExibicao: string;
     tokenMascarado: string;
@@ -23,7 +23,7 @@ export interface UsuarioResumo {
     selecionado: boolean;
 }
 
-export interface CriarUsuarioRequest {
+export interface CriarUsuarioTogglRequest {
     nomeExibicao: string;
     tokenApi: string;
     ignorarValidacao?: boolean;
@@ -32,7 +32,7 @@ export interface CriarUsuarioRequest {
     selecionado?: boolean;
 }
 
-export interface EditarUsuarioRequest {
+export interface EditarUsuarioTogglRequest {
     nomeExibicao?: string | null;
     tokenApi?: string | null;
     ignorarValidacao?: boolean;
@@ -45,15 +45,15 @@ export interface ValidarTokenResponse {
     valido: boolean;
 }
 
-export type StatusConsultaUsuario =
+export type StatusConsultaUsuarioToggl =
     | 'Sucesso'
     | 'Erro'
     | 'LimiteAtingidoComCache'
     | 'LimiteAtingidoSemCache';
 
-export interface EventoConsultaUsuario {
+export interface EventoConsultaUsuarioToggl {
     nomeUsuario: string;
-    status: StatusConsultaUsuario;
+    status: StatusConsultaUsuarioToggl;
     mensagem: string | null;
     quantidadeRegistros: number | null;
 }
@@ -68,7 +68,7 @@ export interface ConsultarResponse {
     dataInicio: string;
     dataFim: string;
     veioDoCache: boolean;
-    usuarios: EventoConsultaUsuario[];
+    usuarios: EventoConsultaUsuarioToggl[];
 }
 
 export interface LinhaDescricao {
@@ -88,8 +88,10 @@ export interface RegistroTempoBruto {
     stop: string | null;
 }
 
-export interface RelatorioUsuario {
+export interface RelatorioUsuarioToggl {
     nomeExibicao: string;
+    sigla: string;
+    cor: string;
     porDescricao: LinhaDescricao[];
     porTag: Record<string, number>;
     emAndamento: RegistroTempoBruto[];
@@ -100,7 +102,7 @@ export interface RelatorioResponse {
     dataInicio: string;
     dataFim: string;
     agrupamento: Agrupamento;
-    usuarios: RelatorioUsuario[];
+    usuarios: RelatorioUsuarioToggl[];
 }
 
 export interface LinhaBusca {

@@ -32,7 +32,7 @@ public static class CarregadorCacheIni
                 continue;
 
             string chave = nomeSecao.Substring(PrefixoSecaoUsuario.Length);
-            cache.Usuarios.Add(new UsuarioCacheado
+            cache.Usuarios.Add(new UsuarioTogglCacheado
             {
                 Chave = chave,
                 NomeExibicao = AnalisadorIni.ObterOuPadrao(valores, "NomeExibicao", chave),
@@ -53,7 +53,7 @@ public static class CarregadorCacheIni
         sb.AppendLine($"DataFim={cache.DataFim}");
         sb.AppendLine();
 
-        foreach (UsuarioCacheado usuario in cache.Usuarios)
+        foreach (UsuarioTogglCacheado usuario in cache.Usuarios)
         {
             sb.AppendLine($"[{PrefixoSecaoUsuario}{usuario.Chave}]");
             sb.AppendLine($"NomeExibicao={usuario.NomeExibicao}");

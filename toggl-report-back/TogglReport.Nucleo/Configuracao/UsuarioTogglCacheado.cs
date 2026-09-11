@@ -2,7 +2,7 @@ using RelatorioToggl.Toggl;
 
 namespace RelatorioToggl.Configuracao;
 
-public class UsuarioCacheado
+public class UsuarioTogglCacheado
 {
     public string Chave { get; set; } = "";
 

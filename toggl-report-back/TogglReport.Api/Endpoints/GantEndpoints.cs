@@ -54,15 +54,15 @@ public static class GantEndpoints
                 configuracao.Usuarios = configuracao.Usuarios.Where(u => u.Selecionado).ToList();
 
             if (configuracao is null || configuracao.Usuarios.Count == 0)
-                return Results.BadRequest("Nenhum usuário selecionado. Cadastre e selecione ao menos um em POST /api/usuarios.");
+                return Results.BadRequest("Nenhum usuário do Toggl selecionado. Cadastre e selecione ao menos um em POST /api/usuarios-toggl.");
 
             CacheConsulta? cache = ServicoConsulta.CarregarCacheSeExistente(caminhoCacheGant);
 
             if (!request.ForcarConsultaApi && cache is not null && ServicoConsulta.CacheCorrespondeAosParametros(cache, configuracao, inicio, fim))
             {
                 ResultadoConsulta resultadoCache = ServicoConsulta.CarregarRegistrosDoCache(cache, configuracao);
-                List<EventoConsultaUsuario> eventosCache = resultadoCache.OrdemUsuarios
-                    .Select(nome => new EventoConsultaUsuario(nome, StatusConsultaUsuario.Sucesso, null, resultadoCache.RegistrosPorUsuario[nome].Count))
+                List<EventoConsultaUsuarioToggl> eventosCache = resultadoCache.OrdemUsuarios
+                    .Select(nome => new EventoConsultaUsuarioToggl(nome, StatusConsultaUsuarioToggl.Sucesso, null, resultadoCache.RegistrosPorUsuario[nome].Count))
                     .ToList();
 
                 return Results.Ok(new ConsultarResponse(request.DataInicio, request.DataFim, VeioDoCache: true, eventosCache));
@@ -74,7 +74,7 @@ public static class GantEndpoints
                     ? cache
                     : null;
 
-            List<EventoConsultaUsuario> eventos = new();
+            List<EventoConsultaUsuarioToggl> eventos = new();
             ResultadoConsulta resultado = await ServicoConsulta.ConsultarUsuariosAsync(configuracao, inicio, fim, cacheParaFallback, eventos.Add);
             ServicoConsulta.SalvarCache(caminhoCacheGant, configuracao, inicio, fim, resultado.RegistrosPorUsuario, resultado.OrdemUsuarios);
 
@@ -89,7 +89,7 @@ public static class GantEndpoints
 
             ConfiguracaoApp? configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao, caminhoUsuarios);
             if (configuracao is null || configuracao.Usuarios.Count == 0)
-                return Results.BadRequest("Nenhum usuário cadastrado.");
+                return Results.BadRequest("Nenhum usuário do Toggl cadastrado.");
 
             CacheConsulta? cache = CarregadorCacheIni.Carregar(caminhoCacheGant);
             if (cache is null || cache.DataInicio != dataInicio || cache.DataFim != dataFim)

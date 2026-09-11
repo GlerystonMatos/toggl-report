@@ -22,6 +22,7 @@ export function calcularColisaoPosicao(linhas: LinhaColisao[]): boolean[] {
     const flags = new Array<boolean>(linhas.length).fill(false);
     for (const indices of indicesPorGrupo.values()) {
         if (indices.length < 2) continue;
+        if (linhas[indices[0]].agrupada) continue;
         const posicaoDisputada = (['dev', 'rev', 'qa'] as const).some(
             (posicao) => indices.filter((i) => linhas[i][posicao].nomeExibicao !== null).length >= 2,
         );

@@ -13,7 +13,7 @@ public static class ServicoSprint
 
     public static ResultadoSprint Montar(
         Sprint sprint,
-        List<ConfiguracaoUsuario> usuariosSelecionados,
+        List<ConfiguracaoUsuarioToggl> usuariosSelecionados,
         ResultadoConsulta consulta,
         ConfiguracaoCategoriasSprint categorias)
     {
@@ -97,7 +97,7 @@ public static class ServicoSprint
             }
         }
 
-        Dictionary<string, ConfiguracaoUsuario> usuarioPorNome = usuariosSelecionados.ToDictionary(u => u.NomeExibicao);
+        Dictionary<string, ConfiguracaoUsuarioToggl> usuarioPorNome = usuariosSelecionados.ToDictionary(u => u.NomeExibicao);
 
         Dictionary<(string Chave, bool Agrupada), List<(string NomeExibicao, long[] Segundos)>> porGrupo = new();
         foreach (KeyValuePair<(string Chave, string NomeExibicao, bool Agrupada), long[]> par in segundosPorChave)
@@ -139,9 +139,10 @@ public static class ServicoSprint
                     continue;
                 }
 
-                ConfiguracaoUsuario usuario = usuarioPorNome[nomeExibicao];
-                SlotColaborador[]? linhaCompativel = linhasEmConstrucao
-                    .FirstOrDefault(linha => categoriasUsadas.All(categoria => linha[categoria].NomeExibicao is null));
+                ConfiguracaoUsuarioToggl usuario = usuarioPorNome[nomeExibicao];
+                SlotColaborador[]? linhaCompativel = agrupada
+                    ? null
+                    : linhasEmConstrucao.FirstOrDefault(linha => categoriasUsadas.All(categoria => linha[categoria].NomeExibicao is null));
 
                 if (linhaCompativel is null)
                 {
@@ -218,7 +219,7 @@ public static class ServicoSprint
 
         List<LinhaColaboradorSprint> colaboradores = new();
 
-        foreach (ConfiguracaoUsuario usuario in usuariosSelecionados)
+        foreach (ConfiguracaoUsuarioToggl usuario in usuariosSelecionados)
         {
             segundosRealizadosPorUsuario.TryGetValue(usuario.NomeExibicao, out long segundosRealizados);
 

@@ -6,5 +6,5 @@ public class CacheConsulta
 
     public string DataFim { get; set; } = "";
 
-    public List<UsuarioCacheado> Usuarios { get; set; } = new();
+    public List<UsuarioTogglCacheado> Usuarios { get; set; } = new();
 }

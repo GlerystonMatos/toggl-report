@@ -2,15 +2,15 @@ using System.Text;
 
 namespace RelatorioToggl.Configuracao;
 
-public static class CarregadorUsuariosIni
+public static class CarregadorUsuariosTogglIni
 {
     private const string PrefixoSecaoUsuario = "Usuario:";
 
-    public static List<ConfiguracaoUsuario> Carregar(string caminho, string? caminhoMigracaoLegado = null)
+    public static List<ConfiguracaoUsuarioToggl> Carregar(string caminho, string? caminhoMigracaoLegado = null)
     {
         if (!File.Exists(caminho) && caminhoMigracaoLegado is not null && File.Exists(caminhoMigracaoLegado))
         {
-            List<ConfiguracaoUsuario> usuariosLegado = ExtrairUsuarios(AnalisadorIni.Analisar(caminhoMigracaoLegado));
+            List<ConfiguracaoUsuarioToggl> usuariosLegado = ExtrairUsuarios(AnalisadorIni.Analisar(caminhoMigracaoLegado));
             if (usuariosLegado.Count > 0)
             {
                 try
@@ -25,14 +25,14 @@ public static class CarregadorUsuariosIni
             }
         }
 
-        return File.Exists(caminho) ? ExtrairUsuarios(AnalisadorIni.Analisar(caminho)) : new List<ConfiguracaoUsuario>();
+        return File.Exists(caminho) ? ExtrairUsuarios(AnalisadorIni.Analisar(caminho)) : new List<ConfiguracaoUsuarioToggl>();
     }
 
-    public static void Salvar(string caminho, List<ConfiguracaoUsuario> usuarios)
+    public static void Salvar(string caminho, List<ConfiguracaoUsuarioToggl> usuarios)
     {
         StringBuilder sb = new();
 
-        foreach (ConfiguracaoUsuario usuario in usuarios)
+        foreach (ConfiguracaoUsuarioToggl usuario in usuarios)
         {
             sb.AppendLine($"[{PrefixoSecaoUsuario}{usuario.Chave}]");
             sb.AppendLine($"NomeExibicao={usuario.NomeExibicao}");
@@ -46,9 +46,9 @@ public static class CarregadorUsuariosIni
         AnalisadorIni.Escrever(caminho, sb.ToString());
     }
 
-    private static List<ConfiguracaoUsuario> ExtrairUsuarios(Dictionary<string, Dictionary<string, string>> secoes)
+    private static List<ConfiguracaoUsuarioToggl> ExtrairUsuarios(Dictionary<string, Dictionary<string, string>> secoes)
     {
-        List<ConfiguracaoUsuario> usuarios = new();
+        List<ConfiguracaoUsuarioToggl> usuarios = new();
 
         foreach ((string nomeSecao, Dictionary<string, string> valores) in secoes)
         {
@@ -56,7 +56,7 @@ public static class CarregadorUsuariosIni
                 continue;
 
             string chave = nomeSecao.Substring(PrefixoSecaoUsuario.Length);
-            usuarios.Add(new ConfiguracaoUsuario
+            usuarios.Add(new ConfiguracaoUsuarioToggl
             {
                 Chave = chave,
                 NomeExibicao = AnalisadorIni.ObterOuPadrao(valores, "NomeExibicao", chave),

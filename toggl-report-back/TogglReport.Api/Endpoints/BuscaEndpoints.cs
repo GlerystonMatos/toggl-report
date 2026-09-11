@@ -15,7 +15,7 @@ public static class BuscaEndpoints
 
             ConfiguracaoApp? configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao, caminhoUsuarios);
             if (configuracao is null || configuracao.Usuarios.Count == 0)
-                return Results.BadRequest("Nenhum usuário cadastrado.");
+                return Results.BadRequest("Nenhum usuário do Toggl cadastrado.");
 
             CacheConsulta? cache = CarregadorCacheIni.Carregar(caminhoCache);
             if (cache is null)

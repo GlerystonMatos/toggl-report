@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import { useUsuarios } from './useUsuarios';
+import { useUsuariosToggl } from './useUsuariosToggl';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import type { UsuarioResumo } from '../../api/tipos';
-import { UsuarioFormDialog } from './UsuarioFormDialog';
+import type { UsuarioTogglResumo } from '../../api/tipos';
+import { UsuarioTogglFormDialog } from './UsuarioTogglFormDialog';
+import { BadgeSigla } from '../../components/BadgeSigla';
 import { useNotificacao } from '../../hooks/useNotificacao';
 import { CabecalhoView } from '../../components/CabecalhoView';
 import { DialogoConfirmacao } from '../../components/DialogoConfirmacao';
@@ -19,21 +20,22 @@ import {
     Stack,
     Checkbox,
     ListItem,
+    Typography,
     IconButton,
     CardContent,
     ListItemText,
 } from '@mui/material';
 
-export function UsuariosPanel(): ReactNode {
+export function UsuariosTogglPanel(): ReactNode {
     const [dialogoAberto, setDialogoAberto] = useState(false);
     const { notificarErro, notificarSucesso } = useNotificacao();
-    const { usuarios, carregando, carregar, editar, remover } = useUsuarios();
+    const { usuarios, carregando, carregar, editar, remover } = useUsuariosToggl();
     const [removendoChave, setRemovendoChave] = useState<string | null>(null);
-    const [usuarioEmEdicao, setUsuarioEmEdicao] = useState<UsuarioResumo | null>(null);
-    const [usuarioParaExcluir, setUsuarioParaExcluir] = useState<UsuarioResumo | null>(null);
+    const [usuarioEmEdicao, setUsuarioEmEdicao] = useState<UsuarioTogglResumo | null>(null);
+    const [usuarioParaExcluir, setUsuarioParaExcluir] = useState<UsuarioTogglResumo | null>(null);
 
     useEffect(() => {
-        carregar().catch((erro: unknown) => notificarErro(erro, 'Não foi possível listar os usuários'));
+        carregar().catch((erro: unknown) => notificarErro(erro, 'Não foi possível listar os usuários do Toggl'));
     }, []);
 
     function abrirParaCriar(): void {
@@ -41,16 +43,16 @@ export function UsuariosPanel(): ReactNode {
         setDialogoAberto(true);
     }
 
-    function abrirParaEditar(usuario: UsuarioResumo): void {
+    function abrirParaEditar(usuario: UsuarioTogglResumo): void {
         setUsuarioEmEdicao(usuario);
         setDialogoAberto(true);
     }
 
-    async function alternarSelecionado(usuario: UsuarioResumo): Promise<void> {
+    async function alternarSelecionado(usuario: UsuarioTogglResumo): Promise<void> {
         try {
             await editar(usuario.chave, { selecionado: !usuario.selecionado });
         } catch (erro) {
-            notificarErro(erro, 'Não foi possível atualizar a seleção do usuário');
+            notificarErro(erro, 'Não foi possível atualizar a seleção do usuário do Toggl');
         }
     }
 
@@ -59,10 +61,10 @@ export function UsuariosPanel(): ReactNode {
         setRemovendoChave(usuarioParaExcluir.chave);
         try {
             await remover(usuarioParaExcluir.chave);
-            notificarSucesso(`Usuário "${usuarioParaExcluir.nomeExibicao}" removido com sucesso.`);
+            notificarSucesso(`Usuário do Toggl "${usuarioParaExcluir.nomeExibicao}" removido com sucesso.`);
             setUsuarioParaExcluir(null);
         } catch (erro) {
-            notificarErro(erro, 'Não foi possível remover o usuário');
+            notificarErro(erro, 'Não foi possível remover o usuário do Toggl');
         } finally {
             setRemovendoChave(null);
         }
@@ -72,7 +74,7 @@ export function UsuariosPanel(): ReactNode {
         <Card variant="outlined">
             <CardContent>
                 <Stack spacing={2}>
-                    <CabecalhoView titulo="Usuários">
+                    <CabecalhoView titulo="Usuários do Toggl">
                         <BotaoComCarregamento
                             variant="outlined"
                             startIcon={<AddIcon />}
@@ -112,10 +114,10 @@ export function UsuariosPanel(): ReactNode {
                                     onChange={() => void alternarSelecionado(usuario)}
                                     aria-label="Incluir nas consultas" />
                                 <ListItemText
-                                    primary={usuario.nomeExibicao}
-                                    secondary={
-                                        <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
-                                            <Chip size="small" label={usuario.sigla || '—'} sx={{ bgcolor: usuario.cor || undefined, fontWeight: 600 }} />
+                                    primary={
+                                        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                                            <Typography component="span">{usuario.nomeExibicao}</Typography>
+                                            <BadgeSigla sigla={usuario.sigla} cor={usuario.cor} />
                                             <Chip size="small" label={usuario.tokenMascarado} variant="outlined" />
                                         </Stack>
                                     } />
@@ -125,7 +127,7 @@ export function UsuariosPanel(): ReactNode {
                 </Stack>
             </CardContent>
 
-            <UsuarioFormDialog
+            <UsuarioTogglFormDialog
                 aberto={dialogoAberto}
                 usuarioEmEdicao={usuarioEmEdicao}
                 onFechar={() => setDialogoAberto(false)}
@@ -136,8 +138,8 @@ export function UsuariosPanel(): ReactNode {
 
             <DialogoConfirmacao
                 aberto={usuarioParaExcluir !== null}
-                titulo="Remover usuário"
-                mensagem={`Tem certeza que deseja remover o usuário "${usuarioParaExcluir?.nomeExibicao}"? Essa ação não pode ser desfeita.`}
+                titulo="Remover usuário do Toggl"
+                mensagem={`Tem certeza que deseja remover o usuário do Toggl "${usuarioParaExcluir?.nomeExibicao}"? Essa ação não pode ser desfeita.`}
                 textoConfirmar="Remover"
                 textoCancelar="Cancelar"
                 corConfirmar="error"

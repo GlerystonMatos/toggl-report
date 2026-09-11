@@ -10,5 +10,5 @@ public class ConfiguracaoApp
 
     public List<string> TagsDetalhadas { get; set; } = new();
 
-    public List<ConfiguracaoUsuario> Usuarios { get; set; } = new();
+    public List<ConfiguracaoUsuarioToggl> Usuarios { get; set; } = new();
 }

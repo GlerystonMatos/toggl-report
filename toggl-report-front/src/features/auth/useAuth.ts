@@ -1,5 +1,5 @@
-import { listarUsuarios } from '../../api/usuariosApi';
 import { useCallback, useEffect, useState } from 'react';
+import { listarUsuarios } from '../../api/usuariosTogglApi';
 import { ErroApi, definirCredencial, limparCredencial, obterCredencial } from '../../api/http';
 
 interface ResultadoUseAuth {
@@ -17,9 +17,6 @@ export function useAuth(): ResultadoUseAuth {
     const [entrando, setEntrando] = useState(false);
     const [erro, setErro] = useState<string | null>(null);
 
-    // Sem credencial salva: tenta uma chamada sem header — se o backend não
-    // tiver AUTH__USUARIO/AUTH__SENHA configurados (ex.: dev local), a API
-    // aceita e pulamos a tela de login; se exigir, cai no catch e mostra login.
     useEffect(() => {
         if (obterCredencial() !== null) {
             return;
