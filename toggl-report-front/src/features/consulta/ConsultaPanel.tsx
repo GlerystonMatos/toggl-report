@@ -127,9 +127,13 @@ export function ConsultaPanel({
                                     <TableBody>
                                         {usuariosSelecionados.map((usuario) => (
                                             <TableRow key={usuario.chave}>
-                                                <TableCell sx={{ py: 0.5 }}>{usuario.nomeExibicao}</TableCell>
-                                                <TableCell sx={{ py: 0.5, width: '1%' }}>
-                                                    <BadgeSigla sigla={usuario.sigla} cor={usuario.cor} nome={usuario.nomeExibicao} />
+                                                <TableCell sx={{ py: 0.5, pr: 1 }}>{usuario.nomeExibicao}</TableCell>
+                                                <TableCell sx={{ py: 0.5, pl: 1, width: '1%' }}>
+                                                    <BadgeSigla
+                                                        sigla={usuario.sigla}
+                                                        cor={usuario.cor}
+                                                        nome={usuario.nomeExibicao}
+                                                        sx={{ borderRadius: 1 }} />
                                                 </TableCell>
                                             </TableRow>
                                         ))}

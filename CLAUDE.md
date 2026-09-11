@@ -218,9 +218,12 @@ theme.ts        tema MUI único, claro — CORES exportado (paleta central)
 App.tsx         Tabs + Steppers + estado elevado (configuracao/configuracaoGant/parametrosSprint)
 ```
 
-**Componentes compartilhados a preferir antes de duplicar**: `BadgeSigla` (badge
-quadrado de sigla — padrão único do app, **exceto** a grade de dias do Gantt, que usa
-seu próprio `<Chip>` de propósito), `CampoTags`, `SelectAgrupamento`, `CabecalhoView`,
+**Componentes compartilhados a preferir antes de duplicar**: `BadgeSigla` (badge de
+sigla — padrão único do app, cantos retos por default; a tabela "Usuários
+selecionados" do `ConsultaPanel` é a única exceção com `sx={{ borderRadius: 1 }}` +
+colunas mais próximas — grid DEV/REV/QA e "Colaboradores" do Sprint e o
+`AccordionSummary` do Relatório usam o badge padrão; a grade de dias do Gantt usa seu
+próprio `<Chip>`, nunca `BadgeSigla`), `CampoTags`, `SelectAgrupamento`, `CabecalhoView`,
 `MarcaTogglReport` (logo+wordmark), `AvisoCache`, `EsqueletoCarregando`,
 `DialogoConfirmacao`, `ParametrosFormBase`.
 

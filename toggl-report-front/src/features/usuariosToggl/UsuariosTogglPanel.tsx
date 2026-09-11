@@ -15,15 +15,17 @@ import { BotaoComCarregamento } from '../../components/BotaoComCarregamento';
 import {
     Card,
     Chip,
-    List,
+    Table,
     Alert,
     Stack,
     Checkbox,
-    ListItem,
-    Typography,
+    TableRow,
+    TableBody,
+    TableCell,
+    TableHead,
     IconButton,
     CardContent,
-    ListItemText,
+    TableContainer,
 } from '@mui/material';
 
 export function UsuariosTogglPanel(): ReactNode {
@@ -89,41 +91,54 @@ export function UsuariosTogglPanel(): ReactNode {
                         </Alert>
                     ) : undefined}
 
-                    <List disablePadding>
-                        {usuarios.map((usuario) => (
-                            <ListItem
-                                key={usuario.chave}
-                                divider
-                                secondaryAction={
-                                    <Stack direction="row" spacing={0.5}>
-                                        <IconButton edge="end" onClick={() => abrirParaEditar(usuario)} aria-label="editar">
-                                            <EditIcon fontSize="small" />
-                                        </IconButton>
-                                        <IconButton
-                                            edge="end"
-                                            onClick={() => setUsuarioParaExcluir(usuario)}
-                                            disabled={removendoChave === usuario.chave}
-                                            aria-label="remover">
-                                            <DeleteIcon fontSize="small" />
-                                        </IconButton>
-                                    </Stack>
-                                }>
-                                <Checkbox
-                                    edge="start"
-                                    checked={usuario.selecionado}
-                                    onChange={() => void alternarSelecionado(usuario)}
-                                    aria-label="Incluir nas consultas" />
-                                <ListItemText
-                                    primary={
-                                        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                                            <Typography component="span">{usuario.nomeExibicao}</Typography>
-                                            <BadgeSigla sigla={usuario.sigla} cor={usuario.cor} />
-                                            <Chip size="small" label={usuario.tokenMascarado} variant="outlined" />
-                                        </Stack>
-                                    } />
-                            </ListItem>
-                        ))}
-                    </List>
+                    {usuarios.length > 0 ? (
+                        <TableContainer>
+                            <Table size="small">
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell padding="checkbox" />
+                                        <TableCell>Nome</TableCell>
+                                        <TableCell>Sigla</TableCell>
+                                        <TableCell>Token</TableCell>
+                                        <TableCell align="right">Ações</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {usuarios.map((usuario) => (
+                                        <TableRow key={usuario.chave}>
+                                            <TableCell padding="checkbox">
+                                                <Checkbox
+                                                    checked={usuario.selecionado}
+                                                    onChange={() => void alternarSelecionado(usuario)}
+                                                    aria-label="Incluir nas consultas" />
+                                            </TableCell>
+                                            <TableCell>{usuario.nomeExibicao}</TableCell>
+                                            <TableCell>
+                                                <BadgeSigla sigla={usuario.sigla} cor={usuario.cor} />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Chip size="small" label={usuario.tokenMascarado} variant="outlined" />
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}>
+                                                    <IconButton edge="end" onClick={() => abrirParaEditar(usuario)} aria-label="editar">
+                                                        <EditIcon fontSize="small" />
+                                                    </IconButton>
+                                                    <IconButton
+                                                        edge="end"
+                                                        onClick={() => setUsuarioParaExcluir(usuario)}
+                                                        disabled={removendoChave === usuario.chave}
+                                                        aria-label="remover">
+                                                        <DeleteIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Stack>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    ) : undefined}
                 </Stack>
             </CardContent>
 
