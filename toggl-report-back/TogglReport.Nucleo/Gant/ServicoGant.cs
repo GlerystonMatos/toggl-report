@@ -6,13 +6,13 @@ namespace RelatorioToggl.Gant;
 
 public static class ServicoGant
 {
-    public static ResultadoGant Montar(CacheConsulta cache, List<ConfiguracaoUsuario> usuarios, DateTime inicio, DateTime fim, List<string> tagsSelecionadas, string agrupamento, string? termo = null)
+    public static ResultadoGant Montar(CacheConsulta cache, List<ConfiguracaoUsuarioToggl> usuarios, DateTime inicio, DateTime fim, List<string> tagsSelecionadas, string agrupamento, string? termo = null)
     {
         List<string> dias = DiasUteis.Entre(inicio, fim)
             .Select(dia => dia.ToString("yyyy-MM-dd"))
             .ToList();
 
-        Dictionary<string, ConfiguracaoUsuario> usuariosPorChave = usuarios.ToDictionary(u => u.Chave);
+        Dictionary<string, ConfiguracaoUsuarioToggl> usuariosPorChave = usuarios.ToDictionary(u => u.Chave);
         Dictionary<string, int> ordemPorChave = usuarios
             .Select((usuario, indice) => (usuario.Chave, indice))
             .ToDictionary(par => par.Chave, par => par.indice);
@@ -21,9 +21,9 @@ public static class ServicoGant
         Dictionary<(string UsuarioChave, string Categoria, string Descricao), double> totalPorLinha = new();
         Dictionary<(string UsuarioChave, string Categoria, string Descricao), bool> detalhadaPorLinha = new();
 
-        foreach (UsuarioCacheado usuarioCacheado in cache.Usuarios)
+        foreach (UsuarioTogglCacheado usuarioCacheado in cache.Usuarios)
         {
-            if (!usuariosPorChave.TryGetValue(usuarioCacheado.Chave, out ConfiguracaoUsuario? usuario))
+            if (!usuariosPorChave.TryGetValue(usuarioCacheado.Chave, out ConfiguracaoUsuarioToggl? usuario))
                 continue;
 
             foreach (RegistroTempoDto registro in ServicoAgrupamento.ObterConcluidos(usuarioCacheado.Registros))
@@ -70,7 +70,7 @@ public static class ServicoGant
         List<LinhaGant> linhas = new();
         foreach ((string UsuarioChave, string Categoria, string Descricao) chave in chavesOrdenadas)
         {
-            ConfiguracaoUsuario usuario = usuariosPorChave[chave.UsuarioChave];
+            ConfiguracaoUsuarioToggl usuario = usuariosPorChave[chave.UsuarioChave];
             Dictionary<string, List<CelulaGant>> celulasPorDia = new();
             foreach ((string dia, double horas) in horasPorDiaNaLinha[chave])
                 celulasPorDia[dia] = new List<CelulaGant> { new CelulaGant(usuario.Chave, usuario.NomeExibicao, usuario.Sigla, usuario.Cor, horas) };

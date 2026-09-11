@@ -73,7 +73,7 @@ export function RelatorioView({
             {carregando && !relatorio ? <EsqueletoCarregando /> : undefined}
 
             {relatorio && relatorio.usuarios.length === 0 ? (
-                <Alert severity="warning">Nenhum usuário com dados para este período.</Alert>
+                <Alert severity="warning">Nenhum usuário do Toggl com dados para este período.</Alert>
             ) : undefined}
 
             {relatorio ? (

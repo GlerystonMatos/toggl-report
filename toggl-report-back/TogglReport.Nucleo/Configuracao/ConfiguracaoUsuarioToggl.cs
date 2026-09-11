@@ -1,6 +1,6 @@
 namespace RelatorioToggl.Configuracao;
 
-public class ConfiguracaoUsuario
+public class ConfiguracaoUsuarioToggl
 {
     public string Chave { get; set; } = "";
 

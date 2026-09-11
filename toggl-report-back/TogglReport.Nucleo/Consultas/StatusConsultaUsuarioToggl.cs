@@ -1,6 +1,6 @@
 namespace RelatorioToggl.Consultas;
 
-public enum StatusConsultaUsuario
+public enum StatusConsultaUsuarioToggl
 {
     Sucesso,
     Erro,

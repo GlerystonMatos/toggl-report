@@ -2,25 +2,30 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { formatarPeriodo } from '../../utils/datas';
 import { rotularAgrupamento } from '../../utils/rotulos';
+import { BadgeSigla } from '../../components/BadgeSigla';
 import { useNotificacao } from '../../hooks/useNotificacao';
 import { DialogoConfirmacao } from '../../components/DialogoConfirmacao';
 import { BotaoComCarregamento } from '../../components/BotaoComCarregamento';
 
 import type {
     Agrupamento,
-    UsuarioResumo,
+    UsuarioTogglResumo,
     ConsultarResponse,
 } from '../../api/tipos';
 
 import {
     Card,
-    Chip,
     Alert,
     Stack,
+    Table,
     Divider,
     Checkbox,
+    TableRow,
+    TableBody,
+    TableCell,
     Typography,
     CardContent,
+    TableContainer,
     FormControlLabel,
 } from '@mui/material';
 
@@ -30,7 +35,7 @@ interface ConsultaPanelProps {
     agrupamento?: Agrupamento;
     tagsDetalhadas?: string[];
     categorias?: { dev: string[]; rev: string[]; qa: string[] };
-    usuariosSelecionados: UsuarioResumo[];
+    usuariosSelecionados: UsuarioTogglResumo[];
     resultado: ConsultarResponse | null;
     consultando: boolean;
     executar: (dataInicio: string, dataFim: string, forcarConsultaApi: boolean) => Promise<ConsultarResponse>;
@@ -112,16 +117,25 @@ export function ConsultaPanel({
 
                     <Stack spacing={0.5}>
                         <Typography variant="body2" color="text.secondary">
-                            Usuários selecionados:
+                            Usuários do Toggl selecionados:
                         </Typography>
                         {usuariosSelecionados.length === 0 ? (
-                            <Alert severity="warning">Nenhum usuário selecionado. Marque ao menos um na aba "Usuários".</Alert>
+                            <Alert severity="warning">Nenhum usuário do Toggl selecionado. Marque ao menos um na aba "Usuários".</Alert>
                         ) : (
-                            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-                                {usuariosSelecionados.map((usuario) => (
-                                    <Chip key={usuario.chave} size="small" label={usuario.nomeExibicao} variant="outlined" />
-                                ))}
-                            </Stack>
+                            <TableContainer>
+                                <Table size="small">
+                                    <TableBody>
+                                        {usuariosSelecionados.map((usuario) => (
+                                            <TableRow key={usuario.chave}>
+                                                <TableCell sx={{ py: 0.5 }}>{usuario.nomeExibicao}</TableCell>
+                                                <TableCell sx={{ py: 0.5, width: '1%' }}>
+                                                    <BadgeSigla sigla={usuario.sigla} cor={usuario.cor} nome={usuario.nomeExibicao} />
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
                         )}
                     </Stack>
 
@@ -149,7 +163,7 @@ export function ConsultaPanel({
                     </Stack>
 
                     {resultado && !temDadoAproveitavel(resultado) ? (
-                        <Alert severity="warning">Nenhum usuário retornou dados para este período.</Alert>
+                        <Alert severity="warning">Nenhum usuário do Toggl retornou dados para este período.</Alert>
                     ) : undefined}
                 </Stack>
             </CardContent>

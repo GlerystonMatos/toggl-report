@@ -9,11 +9,9 @@ import { SprintView } from './features/sprint/SprintView';
 import { limparTachados } from './features/sprint/tachados';
 import { ProvedorNotificacao } from './hooks/useNotificacao';
 import { useConsulta } from './features/consulta/useConsulta';
-import { useUsuarios } from './features/usuarios/useUsuarios';
 import { SprintsPanel } from './features/sprint/SprintsPanel';
 import { MarcaTogglReport } from './components/MarcaTogglReport';
 import { ConsultaPanel } from './features/consulta/ConsultaPanel';
-import { UsuariosPanel } from './features/usuarios/UsuariosPanel';
 import { useConsultaGant } from './features/gant/useConsultaGant';
 import { RodapeDownloads } from './features/dados/RodapeDownloads';
 import { RelatorioView } from './features/relatorio/RelatorioView';
@@ -22,7 +20,9 @@ import { ParametrosForm } from './features/configuracao/ParametrosForm';
 import { ParametrosGantForm } from './features/gant/ParametrosGantForm';
 import { BotaoComCarregamento } from './components/BotaoComCarregamento';
 import { ImportarDadosDialog } from './features/dados/ImportarDadosDialog';
+import { useUsuariosToggl } from './features/usuariosToggl/useUsuariosToggl';
 import { CategoriasSprintPanel } from './features/sprint/CategoriasSprintPanel';
+import { UsuariosTogglPanel } from './features/usuariosToggl/UsuariosTogglPanel';
 
 import type {
     Sprint,
@@ -80,7 +80,7 @@ function AppInterno({ onSair }: AppInternoProps): ReactNode {
     const consultaGant = useConsultaGant();
     const consultaSprint = useConsultaSprint();
 
-    const { usuarios, carregando: carregandoUsuarios, carregar: carregarUsuarios } = useUsuarios();
+    const { usuarios, carregando: carregandoUsuarios, carregar: carregarUsuarios } = useUsuariosToggl();
     const semUsuarios = !carregandoUsuarios && usuarios.length === 0;
 
     const [, setVerificacaoInicialFeita] = useState(false);
@@ -144,11 +144,11 @@ function AppInterno({ onSair }: AppInternoProps): ReactNode {
                 </Toolbar>
             </AppBar>
 
-            <Container maxWidth={false} sx={{ flexGrow: 1, py: 3, px: { xs: 1, sm: 2 } }}>
+            <Container maxWidth={false} sx={{ flexGrow: 1, py: 1, px: { xs: 1, sm: 2 } }}>
                 <Tabs
                     value={modo}
                     onChange={(_, valor: Modo) => setModo(valor)}
-                    sx={{ mb: 2 }}>
+                    sx={{ mb: 1 }}>
                     <Tab label="Usuários" value="usuarios" />
                     <Tab label="Relatório" value="relatorio" />
                     <Tab label="Gant" value="gant" />
@@ -163,15 +163,15 @@ function AppInterno({ onSair }: AppInternoProps): ReactNode {
                             <BotaoComCarregamento
                                 size="small"
                                 onClick={() => setModo('usuarios')}>
-                                Cadastrar usuário
+                                Cadastrar usuário do Toggl
                             </BotaoComCarregamento>
                         }>
-                        Nenhum usuário cadastrado. Cadastre pelo menos um usuário antes de continuar.
+                        Nenhum usuário do Toggl cadastrado. Cadastre pelo menos um antes de continuar.
                     </Alert>
                 ) : undefined}
 
                 {modo === 'usuarios' ? (
-                    <UsuariosPanel key={chaveUsuariosPanel} />
+                    <UsuariosTogglPanel key={chaveUsuariosPanel} />
                 ) : undefined}
 
                 {modo === 'relatorio' ? (

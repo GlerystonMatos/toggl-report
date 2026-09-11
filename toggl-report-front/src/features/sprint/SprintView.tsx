@@ -575,12 +575,21 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
                             <Typography variant="subtitle2">Regras da listagem</Typography>
                             <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
                                 <Typography component="li" variant="body2" color="text.secondary">
-                                    Cada linha é uma tarefa (ou tag) de um colaborador — o badge mostra a sigla dele.
+                                    Cada linha é uma tarefa (linha de descrição) ou uma tag agrupada (linha de tag) — as
+                                    duas seguem regras de mesclagem diferentes, descritas abaixo.
                                 </Typography>
                                 <Typography component="li" variant="body2" color="text.secondary">
-                                    Agrupamento por descrição: uma linha por (descrição × colaborador). Por tag: uma linha
-                                    por (tag × colaborador), com o tempo na coluna QA se o colaborador tem algum
-                                    apontamento QA no sprint, senão na coluna DEV; REV não recebe agrupamento por tag.
+                                    <strong>Linhas de descrição</strong>: os grupos DEV/REV/QA de uma mesma linha podem
+                                    vir de colaboradores diferentes — colaboradores que ocupam posições diferentes da
+                                    mesma descrição são mesclados numa única linha; só abrem linhas separadas quando
+                                    dois colaboradores disputam a mesma posição.
+                                </Typography>
+                                <Typography component="li" variant="body2" color="text.secondary">
+                                    <strong>Linhas de tag</strong>: cada colaborador sempre ocupa a sua própria linha —
+                                    nunca mescla com outro colaborador, mesmo que ocupem posições diferentes (ex.: um em
+                                    DEV e outro em QA da mesma tag). Todo o tempo do colaborador naquela tag vai para a
+                                    coluna QA (se ele tem algum apontamento QA no sprint) ou DEV (senão); REV nunca
+                                    recebe agrupamento por tag.
                                 </Typography>
                                 <Typography component="li" variant="body2" color="text.secondary">
                                     Em qualquer linha, um grupo (DEV/REV/QA) sem tempo do colaborador aparece com "–" na
@@ -596,9 +605,11 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
                                     da lista deste sprint (o número de zeros varia conforme a listagem).
                                 </Typography>
                                 <Typography component="li" variant="body2" color="text.secondary">
-                                    Quando mais de um colaborador ocupa a mesma posição (DEV/REV/QA) da mesma descrição, a
-                                    tarefa aparece em linhas separadas e o código e a descrição dessas linhas ficam em
-                                    vermelho.
+                                    Quando dois colaboradores disputam a mesma posição (DEV/REV/QA) da mesma descrição, a
+                                    tarefa abre em linhas separadas e o código e a descrição dessas linhas ficam em
+                                    vermelho. Essa marcação existe só para linhas de descrição — nas linhas de tag cada
+                                    colaborador já tem sua própria linha por definição, então nunca há destaque de
+                                    duplicidade ali.
                                 </Typography>
                                 <Typography component="li" variant="body2" color="text.secondary">
                                     Situação e Prioridade são fixas — "Baixa" / "Pendente" nas linhas normais, "Tag"
@@ -608,6 +619,11 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
                                     A caixa de seleção antes da Prioridade risca a descrição da linha. A marcação fica
                                     salva no navegador (localStorage), é isolada por sprint (cada sprint tem a sua) e só
                                     é apagada quando uma nova consulta real à API do Toggl é feita (não ao carregar do cache).
+                                </Typography>
+                                <Typography component="li" variant="body2" color="text.secondary">
+                                    "Buscar por descrição" filtra a listagem já carregada por código ou descrição, sem
+                                    fazer nova consulta à API — filtra só o grid de tarefas, não o cabeçalho nem a tabela
+                                    de colaboradores.
                                 </Typography>
                                 <Typography component="li" variant="body2" color="text.secondary">
                                     Dias úteis excluem sábado e domingo.

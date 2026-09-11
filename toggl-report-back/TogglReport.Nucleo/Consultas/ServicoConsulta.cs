@@ -34,9 +34,9 @@ public static class ServicoConsulta
         Dictionary<string, List<RegistroTempoDto>> registrosPorUsuario = new();
         List<string> ordemUsuarios = new();
 
-        foreach (ConfiguracaoUsuario usuario in configuracao.Usuarios)
+        foreach (ConfiguracaoUsuarioToggl usuario in configuracao.Usuarios)
         {
-            UsuarioCacheado? cacheado = cache.Usuarios.FirstOrDefault(u => u.Chave == usuario.Chave);
+            UsuarioTogglCacheado? cacheado = cache.Usuarios.FirstOrDefault(u => u.Chave == usuario.Chave);
             if (cacheado is null)
                 continue;
 
@@ -63,11 +63,11 @@ public static class ServicoConsulta
 
         foreach (string nomeUsuario in ordemUsuarios)
         {
-            ConfiguracaoUsuario? usuario = configuracao.Usuarios.FirstOrDefault(u => u.NomeExibicao == nomeUsuario);
+            ConfiguracaoUsuarioToggl? usuario = configuracao.Usuarios.FirstOrDefault(u => u.NomeExibicao == nomeUsuario);
             if (usuario is null)
                 continue;
 
-            cache.Usuarios.Add(new UsuarioCacheado
+            cache.Usuarios.Add(new UsuarioTogglCacheado
             {
                 Chave = usuario.Chave,
                 NomeExibicao = usuario.NomeExibicao,
@@ -88,7 +88,7 @@ public static class ServicoConsulta
     }
 
     public static async Task<ResultadoConsulta> ConsultarUsuariosAsync(ConfiguracaoApp configuracao, DateTime inicio, DateTime fim,
-        CacheConsulta? cacheParaFallback, Action<EventoConsultaUsuario>? aoProgredir = null)
+        CacheConsulta? cacheParaFallback, Action<EventoConsultaUsuarioToggl>? aoProgredir = null)
     {
         DateTime inicioUtc = DateTime.SpecifyKind(inicio.Date, DateTimeKind.Local).ToUniversalTime();
         DateTime fimUtc = DateTime.SpecifyKind(fim.Date.AddDays(1).AddSeconds(-1), DateTimeKind.Local).ToUniversalTime();
@@ -96,21 +96,21 @@ public static class ServicoConsulta
         Dictionary<string, List<RegistroTempoDto>> registrosPorUsuario = new();
         List<string> ordemUsuarios = new();
 
-        foreach (ConfiguracaoUsuario usuario in configuracao.Usuarios)
+        foreach (ConfiguracaoUsuarioToggl usuario in configuracao.Usuarios)
         {
             if (!LimitadorRequisicoes.PodeConsultar(usuario.Chave))
             {
-                UsuarioCacheado? cacheado = cacheParaFallback?.Usuarios.FirstOrDefault(u => u.Chave == usuario.Chave && u.TokenApi == usuario.TokenApi);
+                UsuarioTogglCacheado? cacheado = cacheParaFallback?.Usuarios.FirstOrDefault(u => u.Chave == usuario.Chave && u.TokenApi == usuario.TokenApi);
                 if (cacheado is null)
                 {
-                    aoProgredir?.Invoke(new EventoConsultaUsuario(usuario.NomeExibicao, StatusConsultaUsuario.LimiteAtingidoSemCache,
+                    aoProgredir?.Invoke(new EventoConsultaUsuarioToggl(usuario.NomeExibicao, StatusConsultaUsuarioToggl.LimiteAtingidoSemCache,
                         $"limite de {LimitadorRequisicoes.MaximoPorHora} requisições/hora atingido e não há cache disponível", null));
                     continue;
                 }
 
                 registrosPorUsuario[usuario.NomeExibicao] = cacheado.Registros;
                 ordemUsuarios.Add(usuario.NomeExibicao);
-                aoProgredir?.Invoke(new EventoConsultaUsuario(usuario.NomeExibicao, StatusConsultaUsuario.LimiteAtingidoComCache,
+                aoProgredir?.Invoke(new EventoConsultaUsuarioToggl(usuario.NomeExibicao, StatusConsultaUsuarioToggl.LimiteAtingidoComCache,
                     $"limite de {LimitadorRequisicoes.MaximoPorHora} requisições/hora atingido — usando dado em cache", cacheado.Registros.Count));
                 continue;
             }
@@ -121,13 +121,13 @@ public static class ServicoConsulta
 
             if (!resultado.Sucesso)
             {
-                aoProgredir?.Invoke(new EventoConsultaUsuario(usuario.NomeExibicao, StatusConsultaUsuario.Erro, resultado.MensagemErro, null));
+                aoProgredir?.Invoke(new EventoConsultaUsuarioToggl(usuario.NomeExibicao, StatusConsultaUsuarioToggl.Erro, resultado.MensagemErro, null));
                 continue;
             }
 
             registrosPorUsuario[usuario.NomeExibicao] = resultado.Dados!;
             ordemUsuarios.Add(usuario.NomeExibicao);
-            aoProgredir?.Invoke(new EventoConsultaUsuario(usuario.NomeExibicao, StatusConsultaUsuario.Sucesso, null, resultado.Dados!.Count));
+            aoProgredir?.Invoke(new EventoConsultaUsuarioToggl(usuario.NomeExibicao, StatusConsultaUsuarioToggl.Sucesso, null, resultado.Dados!.Count));
         }
 
         return new ResultadoConsulta

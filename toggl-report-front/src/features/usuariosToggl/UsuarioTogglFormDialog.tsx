@@ -2,9 +2,9 @@ import { CORES } from '../../theme';
 import type { ReactNode } from 'react';
 import { ErroApi } from '../../api/http';
 import { useEffect, useState } from 'react';
-import { useUsuarios } from './useUsuarios';
+import { useUsuariosToggl } from './useUsuariosToggl';
 import ErrorIcon from '@mui/icons-material/Error';
-import type { UsuarioResumo } from '../../api/tipos';
+import type { UsuarioTogglResumo } from '../../api/tipos';
 import { useNotificacao } from '../../hooks/useNotificacao';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { BotaoComCarregamento } from '../../components/BotaoComCarregamento';
@@ -23,12 +23,12 @@ const COR_PADRAO_USUARIO = CORES.accentAzul;
 
 interface UsuarioFormDialogProps {
     aberto: boolean;
-    usuarioEmEdicao: UsuarioResumo | null;
+    usuarioEmEdicao: UsuarioTogglResumo | null;
     onFechar: () => void;
     onSalvo: (mensagem: string) => void;
 }
 
-export function UsuarioFormDialog({
+export function UsuarioTogglFormDialog({
     aberto,
     usuarioEmEdicao,
     onFechar,
@@ -38,7 +38,7 @@ export function UsuarioFormDialog({
     const { notificarErro } = useNotificacao();
     const [tokenApi, setTokenApi] = useState('');
     const [salvando, setSalvando] = useState(false);
-    const { criar, editar, validar } = useUsuarios();
+    const { criar, editar, validar } = useUsuariosToggl();
     const [validando, setValidando] = useState(false);
     const [sigla, setSigla] = useState(usuarioEmEdicao?.sigla ?? '');
     const [cor, setCor] = useState(usuarioEmEdicao?.cor ?? COR_PADRAO_USUARIO);
@@ -103,13 +103,13 @@ export function UsuarioFormDialog({
                     selecionado: true,
                 });
             }
-            onSalvo(emEdicao ? 'Usuário atualizado com sucesso.' : 'Usuário cadastrado com sucesso.');
+            onSalvo(emEdicao ? 'Usuário do Toggl atualizado com sucesso.' : 'Usuário do Toggl cadastrado com sucesso.');
             fecharEResetar();
         } catch (erro) {
             if (erro instanceof ErroApi && erro.status === 400 && !ignorarValidacao) {
                 setAvisoSemValidacao(erro.message);
             } else {
-                notificarErro(erro, 'Não foi possível salvar o usuário');
+                notificarErro(erro, 'Não foi possível salvar o usuário do Toggl');
             }
         } finally {
             setSalvando(false);
@@ -122,7 +122,7 @@ export function UsuarioFormDialog({
 
     return (
         <Dialog open={aberto} onClose={salvando ? undefined : fecharEResetar} fullWidth maxWidth="sm">
-            <DialogTitle>{emEdicao ? 'Editar usuário' : 'Adicionar usuário'}</DialogTitle>
+            <DialogTitle>{emEdicao ? 'Editar usuário do Toggl' : 'Adicionar usuário do Toggl'}</DialogTitle>
             <DialogContent>
                 <Stack spacing={2} sx={{ mt: 1 }}>
                     <TextField

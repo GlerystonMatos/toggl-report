@@ -36,6 +36,25 @@ export const tema = createTheme({
                 },
             },
         },
+        MuiToolbar: {
+            styleOverrides: {
+                root: {
+                    paddingLeft: 8,
+                    paddingRight: 8,
+                    '@media (min-width:600px)': {
+                        paddingLeft: 12,
+                        paddingRight: 12,
+                    },
+                },
+            },
+        },
+        MuiTab: {
+            styleOverrides: {
+                root: {
+                    padding: '6px 8px',
+                },
+            },
+        },
         MuiOutlinedInput: {
             styleOverrides: {
                 root: {

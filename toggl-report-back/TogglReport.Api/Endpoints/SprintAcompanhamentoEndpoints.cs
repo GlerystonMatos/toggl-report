@@ -21,10 +21,10 @@ public static class SprintAcompanhamentoEndpoints
                 return Results.NotFound("Sprint não encontrado.");
 
             ConfiguracaoApp? configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao, caminhoUsuarios);
-            List<ConfiguracaoUsuario> usuariosSelecionados = configuracao?.Usuarios.Where(u => u.Selecionado).ToList()
-                ?? new List<ConfiguracaoUsuario>();
+            List<ConfiguracaoUsuarioToggl> usuariosSelecionados = configuracao?.Usuarios.Where(u => u.Selecionado).ToList()
+                ?? new List<ConfiguracaoUsuarioToggl>();
             if (usuariosSelecionados.Count == 0)
-                return Results.BadRequest("Nenhum usuário cadastrado.");
+                return Results.BadRequest("Nenhum usuário do Toggl cadastrado.");
 
             CacheConsulta? cache = ServicoConsulta.CarregarCacheSeExistente(caminhoCacheSprint);
             if (cache is null || cache.DataInicio != sprint.DataInicio || cache.DataFim != sprint.DataFim)

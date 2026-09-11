@@ -26,7 +26,7 @@ builder.Services.AddSwaggerGen(opcoes =>
 {
     opcoes.SwaggerDoc("v1", new Microsoft.OpenApi.OpenApiInfo
     {
-        Title = "Toggl Report API",
+        Title = "TogglReportAPI",
         Version = "v1",
         Description = "API local que expõe as mesmas funcionalidades do console TogglReport: parâmetros, usuários/tokens, consulta com cache, relatório e busca por descrição. Autenticação HTTP Basic opcional — ativa quando AUTH__USUARIO/AUTH__SENHA estão configurados; /health, /swagger e /images nunca exigem autenticação."
     });
@@ -118,7 +118,7 @@ string caminhoCacheGant = CaminhosDados.CaminhoCacheGant(AppContext.BaseDirector
 string pastaDados = CaminhosDados.PastaDados(AppContext.BaseDirectory);
 
 app.MapConfiguracaoEndpoints(caminhoConfiguracao, caminhoUsuarios);
-app.MapUsuariosEndpoints(caminhoConfiguracao, caminhoUsuarios);
+app.MapUsuariosTogglEndpoints(caminhoConfiguracao, caminhoUsuarios);
 app.MapConsultasEndpoints(caminhoConfiguracao, caminhoUsuarios, caminhoCache);
 app.MapRelatorioEndpoints(caminhoConfiguracao, caminhoUsuarios, caminhoCache);
 app.MapBuscaEndpoints(caminhoConfiguracao, caminhoUsuarios, caminhoCache);

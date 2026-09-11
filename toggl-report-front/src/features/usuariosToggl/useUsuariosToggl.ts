@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useColecaoCrud } from '../../hooks/useColecaoCrud';
-import type { CriarUsuarioRequest, EditarUsuarioRequest, UsuarioResumo } from '../../api/tipos';
+import type { CriarUsuarioTogglRequest, EditarUsuarioTogglRequest, UsuarioTogglResumo } from '../../api/tipos';
 
 import {
     criarUsuario,
@@ -8,20 +8,20 @@ import {
     editarUsuario,
     listarUsuarios,
     removerUsuario,
-} from '../../api/usuariosApi';
+} from '../../api/usuariosTogglApi';
 
-interface ResultadoUseUsuarios {
-    usuarios: UsuarioResumo[];
+interface ResultadoUseUsuariosToggl {
+    usuarios: UsuarioTogglResumo[];
     carregando: boolean;
-    carregar: () => Promise<UsuarioResumo[]>;
-    criar: (dados: CriarUsuarioRequest) => Promise<UsuarioResumo>;
-    editar: (chave: string, dados: EditarUsuarioRequest) => Promise<UsuarioResumo>;
+    carregar: () => Promise<UsuarioTogglResumo[]>;
+    criar: (dados: CriarUsuarioTogglRequest) => Promise<UsuarioTogglResumo>;
+    editar: (chave: string, dados: EditarUsuarioTogglRequest) => Promise<UsuarioTogglResumo>;
     remover: (chave: string) => Promise<void>;
     validar: (tokenApi: string) => Promise<boolean>;
 }
 
-export function useUsuarios(): ResultadoUseUsuarios {
-    const { itens, ...resto } = useColecaoCrud<UsuarioResumo, CriarUsuarioRequest, EditarUsuarioRequest>({
+export function useUsuariosToggl(): ResultadoUseUsuariosToggl {
+    const { itens, ...resto } = useColecaoCrud<UsuarioTogglResumo, CriarUsuarioTogglRequest, EditarUsuarioTogglRequest>({
         listar: listarUsuarios,
         criar: criarUsuario,
         editar: editarUsuario,

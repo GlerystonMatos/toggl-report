@@ -17,7 +17,7 @@ public static class RelatorioEndpoints
 
             ConfiguracaoApp? configuracao = CarregadorConfiguracaoIni.Carregar(caminhoConfiguracao, caminhoUsuarios);
             if (configuracao is null || configuracao.Usuarios.Count == 0)
-                return Results.BadRequest("Nenhum usuário cadastrado.");
+                return Results.BadRequest("Nenhum usuário do Toggl cadastrado.");
 
             CacheConsulta? cache = CarregadorCacheIni.Carregar(caminhoCache);
             if (cache is null || cache.DataInicio != dataInicio || cache.DataFim != dataFim)
@@ -25,10 +25,13 @@ public static class RelatorioEndpoints
 
             ResultadoConsulta dados = ServicoConsulta.CarregarRegistrosDoCache(cache, configuracao);
 
-            List<RelatorioUsuarioDto> usuarios = new();
+            Dictionary<string, ConfiguracaoUsuarioToggl> usuarioPorNome = configuracao.Usuarios.ToDictionary(u => u.NomeExibicao);
+
+            List<RelatorioUsuarioTogglDto> usuarios = new();
             foreach (string nomeUsuario in dados.OrdemUsuarios)
             {
                 List<RegistroTempoDto> registros = dados.RegistrosPorUsuario[nomeUsuario];
+                usuarioPorNome.TryGetValue(nomeUsuario, out ConfiguracaoUsuarioToggl? usuarioConfig);
 
                 List<LinhaDescricao> porDescricao = configuracao.AgrupamentoPadrao is "descricao" or "ambos"
                     ? (configuracao.AgrupamentoPadrao == "ambos"
@@ -40,8 +43,10 @@ public static class RelatorioEndpoints
                     ? ServicoAgrupamento.AgruparPorTagFiltrada(registros, configuracao.TagsDetalhadas).ToDictionary(par => par.Key, par => par.Value)
                     : new Dictionary<string, long>();
 
-                usuarios.Add(new RelatorioUsuarioDto(
+                usuarios.Add(new RelatorioUsuarioTogglDto(
                     nomeUsuario,
+                    usuarioConfig?.Sigla ?? "",
+                    usuarioConfig?.Cor ?? "",
                     porDescricao,
                     porTag,
                     ServicoAgrupamento.ObterEmAndamento(registros),
