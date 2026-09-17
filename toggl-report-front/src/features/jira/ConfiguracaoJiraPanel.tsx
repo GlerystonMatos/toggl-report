@@ -37,7 +37,9 @@ export const ConfiguracaoJiraPanel = forwardRef<ConfiguracaoJiraPanelHandle, Con
         const [apiToken, setApiToken] = useState('');
         const [tokenMascarado, setTokenMascarado] = useState('');
 
-        const [campoSelecionado, setCampoSelecionado] = useState<CampoJira | null>(null);
+        const [campoEstimativaDev, setCampoEstimativaDev] = useState<CampoJira | null>(null);
+        const [campoEstimativaRev, setCampoEstimativaRev] = useState<CampoJira | null>(null);
+        const [campoEstimativaTestes, setCampoEstimativaTestes] = useState<CampoJira | null>(null);
         const [campoRevisadoPorSelecionado, setCampoRevisadoPorSelecionado] = useState<CampoJira | null>(null);
         const [campos, setCampos] = useState<CampoJira[]>([]);
         const [buscandoCampos, setBuscandoCampos] = useState(false);
@@ -51,11 +53,17 @@ export const ConfiguracaoJiraPanel = forwardRef<ConfiguracaoJiraPanelHandle, Con
                     setUrlDominio(dados.urlDominio);
                     setEmail(dados.email);
                     setTokenMascarado(dados.tokenMascarado);
-                    if (dados.campoEstimativaEsforcoId) {
-                        setCampoSelecionado({ id: dados.campoEstimativaEsforcoId, nome: dados.campoEstimativaEsforcoNome });
+                    if (dados.campoEstimativaDesenvolvimentoId) {
+                        setCampoEstimativaDev({ id: dados.campoEstimativaDesenvolvimentoId, nome: dados.campoEstimativaDesenvolvimentoNome });
                     }
                     if (dados.campoRevisadoPorId) {
                         setCampoRevisadoPorSelecionado({ id: dados.campoRevisadoPorId, nome: dados.campoRevisadoPorNome });
+                    }
+                    if (dados.campoEstimativaRevisaoId) {
+                        setCampoEstimativaRev({ id: dados.campoEstimativaRevisaoId, nome: dados.campoEstimativaRevisaoNome });
+                    }
+                    if (dados.campoEstimativaTestesId) {
+                        setCampoEstimativaTestes({ id: dados.campoEstimativaTestesId, nome: dados.campoEstimativaTestesNome });
                     }
                 })
                 .catch((erro: unknown) => notificarErro(erro, 'Não foi possível carregar a configuração do Jira'));
@@ -102,10 +110,14 @@ export const ConfiguracaoJiraPanel = forwardRef<ConfiguracaoJiraPanelHandle, Con
                     urlDominio: urlDominio.trim(),
                     email: email.trim(),
                     apiToken: apiToken.trim() !== '' ? apiToken.trim() : null,
-                    campoEstimativaEsforcoId: campoSelecionado?.id ?? '',
-                    campoEstimativaEsforcoNome: campoSelecionado?.nome ?? '',
+                    campoEstimativaDesenvolvimentoId: campoEstimativaDev?.id ?? '',
+                    campoEstimativaDesenvolvimentoNome: campoEstimativaDev?.nome ?? '',
                     campoRevisadoPorId: campoRevisadoPorSelecionado?.id ?? '',
                     campoRevisadoPorNome: campoRevisadoPorSelecionado?.nome ?? '',
+                    campoEstimativaRevisaoId: campoEstimativaRev?.id ?? '',
+                    campoEstimativaRevisaoNome: campoEstimativaRev?.nome ?? '',
+                    campoEstimativaTestesId: campoEstimativaTestes?.id ?? '',
+                    campoEstimativaTestesNome: campoEstimativaTestes?.nome ?? '',
                 });
                 setTokenMascarado(atualizado.tokenMascarado);
                 setApiToken('');
@@ -209,19 +221,46 @@ export const ConfiguracaoJiraPanel = forwardRef<ConfiguracaoJiraPanelHandle, Con
                             ) : undefined}
                         </Stack>
 
-                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { sm: 'center' } }}>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                             <Autocomplete
                                 sx={{ flexGrow: 1 }}
                                 options={campos}
-                                value={campoSelecionado}
-                                onChange={(_, valor) => setCampoSelecionado(valor)}
+                                value={campoEstimativaDev}
+                                onChange={(_, valor) => setCampoEstimativaDev(valor)}
                                 getOptionLabel={(campo) => campo.nome}
                                 isOptionEqualToValue={(a, b) => a.id === b.id}
                                 disabled={carregando}
                                 noOptionsText='Clique em "Buscar campos" para listar os campos customizados do Jira'
                                 renderInput={(params) => (
-                                    <TextField {...params} label="Estimativa de esforço" placeholder="Selecione o campo customizado" />
+                                    <TextField {...params} label="Estimativa do desenvolvimento" placeholder="Selecione o campo customizado" />
                                 )} />
+                            <Autocomplete
+                                sx={{ flexGrow: 1 }}
+                                options={campos}
+                                value={campoEstimativaRev}
+                                onChange={(_, valor) => setCampoEstimativaRev(valor)}
+                                getOptionLabel={(campo) => campo.nome}
+                                isOptionEqualToValue={(a, b) => a.id === b.id}
+                                disabled={carregando}
+                                noOptionsText='Clique em "Buscar campos" para listar os campos customizados do Jira'
+                                renderInput={(params) => (
+                                    <TextField {...params} label="Estimativa da revisão" placeholder="Selecione o campo customizado" />
+                                )} />
+                            <Autocomplete
+                                sx={{ flexGrow: 1 }}
+                                options={campos}
+                                value={campoEstimativaTestes}
+                                onChange={(_, valor) => setCampoEstimativaTestes(valor)}
+                                getOptionLabel={(campo) => campo.nome}
+                                isOptionEqualToValue={(a, b) => a.id === b.id}
+                                disabled={carregando}
+                                noOptionsText='Clique em "Buscar campos" para listar os campos customizados do Jira'
+                                renderInput={(params) => (
+                                    <TextField {...params} label="Estimativa dos testes" placeholder="Selecione o campo customizado" />
+                                )} />
+                        </Stack>
+
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { sm: 'center' } }}>
                             <Autocomplete
                                 sx={{ flexGrow: 1 }}
                                 options={campos}

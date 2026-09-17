@@ -17,3 +17,11 @@ export function editarSprint(chave: string, dados: EditarSprintRequest): Promise
 export function removerSprint(chave: string): Promise<void> {
     return http.delete<void>(`/api/sprints/${encodeURIComponent(chave)}`);
 }
+
+export function fecharSprint(chave: string): Promise<Sprint> {
+    return http.post<Sprint>(`/api/sprints/${encodeURIComponent(chave)}/fechar`);
+}
+
+export function reabrirSprint(chave: string): Promise<Sprint> {
+    return http.post<Sprint>(`/api/sprints/${encodeURIComponent(chave)}/reabrir`);
+}

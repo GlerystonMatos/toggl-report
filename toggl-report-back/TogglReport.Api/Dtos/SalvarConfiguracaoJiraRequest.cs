@@ -4,7 +4,11 @@ public record SalvarConfiguracaoJiraRequest(
     string UrlDominio,
     string Email,
     string? ApiToken,
-    string CampoEstimativaEsforcoId,
-    string CampoEstimativaEsforcoNome,
+    string CampoEstimativaDesenvolvimentoId,
+    string CampoEstimativaDesenvolvimentoNome,
     string CampoRevisadoPorId,
-    string CampoRevisadoPorNome);
+    string CampoRevisadoPorNome,
+    string CampoEstimativaRevisaoId,
+    string CampoEstimativaRevisaoNome,
+    string CampoEstimativaTestesId,
+    string CampoEstimativaTestesNome);

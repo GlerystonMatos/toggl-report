@@ -31,7 +31,8 @@ public static class CarregadorSprintsIni
                     CultureInfo.InvariantCulture,
                     out decimal horasPorDia) ? horasPorDia : 0,
                 DataInicio = AnalisadorIni.ObterOuPadrao(valores, "DataInicio", ""),
-                DataFim = AnalisadorIni.ObterOuPadrao(valores, "DataFim", "")
+                DataFim = AnalisadorIni.ObterOuPadrao(valores, "DataFim", ""),
+                Fechado = bool.TryParse(AnalisadorIni.ObterOuPadrao(valores, "Fechado", "False"), out bool fechado) && fechado
             });
         }
 
@@ -49,6 +50,7 @@ public static class CarregadorSprintsIni
             sb.AppendLine($"HorasPorDia={sprint.HorasPorDia.ToString(CultureInfo.InvariantCulture)}");
             sb.AppendLine($"DataInicio={sprint.DataInicio}");
             sb.AppendLine($"DataFim={sprint.DataFim}");
+            sb.AppendLine($"Fechado={sprint.Fechado}");
             sb.AppendLine();
         }
 

@@ -30,6 +30,7 @@ interface SprintLinhaTarefaProps {
     onAlternarTachado: (id: string) => void;
     destacada: boolean;
     onAlternarDestaque: (id: string) => void;
+    onDuploClique: () => void;
     larguraCodigo: number;
     coresStatus: Record<string, string>;
     coresPrioridade: Record<string, string>;
@@ -44,6 +45,7 @@ export function SprintLinhaTarefa({
     onAlternarTachado,
     destacada,
     onAlternarDestaque,
+    onDuploClique,
     larguraCodigo,
     coresStatus,
     coresPrioridade,
@@ -56,6 +58,7 @@ export function SprintLinhaTarefa({
             target="_blank"
             rel="noopener noreferrer"
             onClick={(evento) => evento.stopPropagation()}
+            onDoubleClick={(evento) => evento.stopPropagation()}
             sx={{
                 color: codigoDuplicado ? COR_PENDENTE : 'primary.main',
                 textDecoration: 'underline',
@@ -69,13 +72,19 @@ export function SprintLinhaTarefa({
     const prioridade = infoPrioridade(linha.prioridade, coresPrioridade);
 
     return (
-        <TableRow hover selected={destacada} onClick={() => onAlternarDestaque(id)} sx={{ cursor: 'pointer' }}>
+        <TableRow
+            hover
+            selected={destacada}
+            onClick={() => onAlternarDestaque(id)}
+            onDoubleClick={onDuploClique}
+            sx={{ cursor: 'pointer' }}>
             <TableCell sx={{ width: '1%', px: 0.5 }}>
                 <Checkbox
                     size="small"
                     checked={riscada}
                     onChange={() => onAlternarTachado(id)}
                     onClick={(evento) => evento.stopPropagation()}
+                    onDoubleClick={(evento) => evento.stopPropagation()}
                     sx={{ p: 0.25 }} />
             </TableCell>
             <TableCell align="center" sx={{ width: '1%', px: 0.5, whiteSpace: 'nowrap' }}>

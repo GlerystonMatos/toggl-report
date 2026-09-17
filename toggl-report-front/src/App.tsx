@@ -337,6 +337,7 @@ function AppInterno({ onSair }: AppInternoProps): ReactNode {
                                 categorias={{ dev: parametrosSprint.dev, rev: parametrosSprint.rev, qa: parametrosSprint.qa }}
                                 responsabilidade={responsabilidadeSprint ?? undefined}
                                 origemConsulta={{ valor: consultaSprint.origem, onChange: consultaSprint.setOrigem }}
+                                bloqueado={sprintSelecionado.fechado}
                                 resultado={consultaSprint.resultado}
                                 consultando={consultaSprint.consultando}
                                 executar={consultaSprint.executar}
@@ -356,6 +357,8 @@ function AppInterno({ onSair }: AppInternoProps): ReactNode {
                                 veioDoCache={consultaSprintConcluida.veioDoCache}
                                 categorias={parametrosSprint}
                                 responsabilidade={responsabilidadeSprint}
+                                fechado={sprintSelecionado.fechado}
+                                onFechado={setSprintSelecionado}
                                 onVoltar={() => setEtapaSprintAtiva(1)} />
                         ) : undefined}
                     </>

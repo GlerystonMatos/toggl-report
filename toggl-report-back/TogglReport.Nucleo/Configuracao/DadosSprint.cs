@@ -11,4 +11,6 @@ public class DadosSprint
     public string DataInicio { get; set; } = "";
 
     public string DataFim { get; set; } = "";
+
+    public bool Fechado { get; set; }
 }

@@ -1,7 +1,7 @@
 import { CORES } from '../../theme';
 import type { ReactNode } from 'react';
 import { useSprint } from './useSprint';
-import SearchIcon from '@mui/icons-material/Search';
+import { fecharSprint } from '../../api/sprintsApi';
 import { useEffect, useMemo, useState } from 'react';
 import { SprintDialogInfo } from './SprintDialogInfo';
 import { obterCoresJira } from '../../api/coresJiraApi';
@@ -11,11 +11,13 @@ import { useNotificacao } from '../../hooks/useNotificacao';
 import { SprintCardCapacidade } from './SprintCardCapacidade';
 import { CabecalhoView } from '../../components/CabecalhoView';
 import { SprintCardColaboradores } from './SprintCardColaboradores';
+import { SprintDialogDetalheLinha } from './SprintDialogDetalheLinha';
 import { lerTachados, gravarTachados, idLinhaTarefa } from './tachados';
+import { DialogoConfirmacao } from '../../components/DialogoConfirmacao';
 import { EsqueletoCarregando } from '../../components/EsqueletoCarregando';
 import { BotaoComCarregamento } from '../../components/BotaoComCarregamento';
-import type { CategoriasSprint, ResponsabilidadeSprint } from '../../api/tipos';
 import { GRUPOS, contarDigitos, ordemPrioridade, calcularColisaoPosicao } from './calculos';
+import type { Sprint, CategoriasSprint, ResponsabilidadeSprint, LinhaTarefaSprint } from '../../api/tipos';
 
 import {
     Box,
@@ -24,6 +26,7 @@ import {
     Stack,
     Button,
     Tooltip,
+    Checkbox,
     TableRow,
     TextField,
     TableBody,
@@ -32,6 +35,7 @@ import {
     Autocomplete,
     TableSortLabel,
     TableContainer,
+    FormControlLabel,
 } from '@mui/material';
 
 type CampoOrdenacao = 'prioridade' | 'situacao';
@@ -43,26 +47,31 @@ interface SprintViewProps {
     veioDoCache?: boolean;
     categorias?: CategoriasSprint | null;
     responsabilidade?: ResponsabilidadeSprint | null;
+    fechado?: boolean;
+    onFechado?: (sprint: Sprint) => void;
 }
 
 const LARGURA_CELULA = '2.5rem';
 
-export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categorias, responsabilidade }: SprintViewProps): ReactNode {
-    const { notificarErro } = useNotificacao();
+export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categorias, responsabilidade, fechado = false, onFechado }: SprintViewProps): ReactNode {
+    const [fechando, setFechando] = useState(false);
     const [termoBusca, setTermoBusca] = useState('');
-    const [buscaAberta, setBuscaAberta] = useState(false);
     const { resultado, carregando, carregar } = useSprint();
     const corTag = categorias?.corTag || CORES.corIndisponivel;
+    const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+    const { notificarErro, notificarSucesso } = useNotificacao();
+    const [inverterFiltros, setInverterFiltros] = useState(false);
     const [dialogoInfoAberto, setDialogoInfoAberto] = useState(false);
+    const [confirmandoFechar, setConfirmandoFechar] = useState(false);
     const [destacadas, setDestacadas] = useState<Set<string>>(new Set());
+    const [filtroSituacoes, setFiltroSituacoes] = useState<string[]>([]);
+    const [filtroPrioridades, setFiltroPrioridades] = useState<string[]>([]);
     const [coresStatus, setCoresStatus] = useState<Record<string, string>>({});
+    const [filtroColaboradores, setFiltroColaboradores] = useState<string[]>([]);
     const [coresPrioridade, setCoresPrioridade] = useState<Record<string, string>>({});
     const [tachados, setTachados] = useState<Set<string>>(() => lerTachados(chaveSprint));
-    const [filtrosAbertos, setFiltrosAbertos] = useState(false);
-    const [filtroPrioridades, setFiltroPrioridades] = useState<string[]>([]);
-    const [filtroSituacoes, setFiltroSituacoes] = useState<string[]>([]);
-    const [filtroColaboradores, setFiltroColaboradores] = useState<string[]>([]);
     const [ordenacao, setOrdenacao] = useState<{ campo: CampoOrdenacao; direcao: 'asc' | 'desc' } | null>(null);
+    const [linhaDetalhe, setLinhaDetalhe] = useState<{ linha: LinhaTarefaSprint; codigoDuplicado: boolean } | null>(null);
 
     useEffect(() => {
         obterCoresJira()
@@ -106,6 +115,20 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
             }
             return novo;
         });
+    }
+
+    async function confirmarFechar(): Promise<void> {
+        setFechando(true);
+        try {
+            const sprintAtualizado = await fecharSprint(chaveSprint);
+            notificarSucesso('Sprint fechado. Os dados ficam travados e a consulta sempre usará o cache.');
+            onFechado?.(sprintAtualizado);
+        } catch (erro) {
+            notificarErro(erro, 'Não foi possível fechar o sprint');
+        } finally {
+            setFechando(false);
+            setConfirmandoFechar(false);
+        }
     }
 
     const cabecalho = resultado?.cabecalho;
@@ -152,15 +175,18 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
         return Array.from(vistos).sort((a, b) => a.localeCompare(b, 'pt-BR'));
     }, [tarefas]);
 
-    const filtrosVazios = filtroPrioridades.length === 0
+    const filtrosVazios = termoBusca.trim() === ''
+        && filtroPrioridades.length === 0
         && filtroSituacoes.length === 0
-        && filtroColaboradores.length === 0;
-    const buscaOuFiltrosAtivos = Boolean(termoBusca.trim()) || !filtrosVazios;
+        && filtroColaboradores.length === 0
+        && !inverterFiltros;
 
     function limparFiltros(): void {
+        setTermoBusca('');
         setFiltroPrioridades([]);
         setFiltroSituacoes([]);
         setFiltroColaboradores([]);
+        setInverterFiltros(false);
     }
 
     function limparOrdenacao(): void {
@@ -183,15 +209,23 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
             : tarefasComId;
 
         if (filtroPrioridades.length > 0) {
-            lista = lista.filter(({ linha }) => !linha.agrupada && filtroPrioridades.includes(linha.prioridade ?? NENHUMA));
+            lista = inverterFiltros
+                ? lista.filter(({ linha }) => !linha.agrupada && !filtroPrioridades.includes(linha.prioridade ?? NENHUMA))
+                : lista.filter(({ linha }) => !linha.agrupada && filtroPrioridades.includes(linha.prioridade ?? NENHUMA));
         }
         if (filtroSituacoes.length > 0) {
-            lista = lista.filter(({ linha }) => !linha.agrupada && filtroSituacoes.includes(linha.situacao ?? NENHUMA));
+            lista = inverterFiltros
+                ? lista.filter(({ linha }) => !linha.agrupada && !filtroSituacoes.includes(linha.situacao ?? NENHUMA))
+                : lista.filter(({ linha }) => !linha.agrupada && filtroSituacoes.includes(linha.situacao ?? NENHUMA));
         }
         if (filtroColaboradores.length > 0) {
-            lista = lista.filter(({ linha }) =>
-                [linha.dev, linha.rev, linha.qa].some((bloco) => bloco.nomeExibicao && filtroColaboradores.includes(bloco.nomeExibicao)),
-            );
+            lista = inverterFiltros
+                ? lista.filter(({ linha }) =>
+                    [linha.dev, linha.rev, linha.qa].every((bloco) => !bloco.nomeExibicao || !filtroColaboradores.includes(bloco.nomeExibicao)),
+                )
+                : lista.filter(({ linha }) =>
+                    [linha.dev, linha.rev, linha.qa].some((bloco) => bloco.nomeExibicao && filtroColaboradores.includes(bloco.nomeExibicao)),
+                );
         }
 
         if (ordenacao) {
@@ -202,47 +236,41 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
         }
 
         return lista;
-    }, [tarefasComId, termoBusca, filtroPrioridades, filtroSituacoes, filtroColaboradores, ordenacao]);
+    }, [tarefasComId, termoBusca, filtroPrioridades, filtroSituacoes, filtroColaboradores, inverterFiltros, ordenacao]);
 
     const colaboradores = resultado?.colaboradores ?? [];
 
     return (
         <Stack spacing={2}>
             <CabecalhoView titulo="Acompanhamento do Sprint">
+                {!fechado ? (
+                    <BotaoComCarregamento
+                        variant="outlined"
+                        carregando={fechando}
+                        onClick={() => setConfirmandoFechar(true)}>
+                        Fechar
+                    </BotaoComCarregamento>
+                ) : undefined}
                 <Button variant="outlined" onClick={() => setDialogoInfoAberto(true)}>
                     Informações
                 </Button>
-                <BotaoComCarregamento
-                    startIcon={<SearchIcon />}
-                    onClick={() => {
-                        if (buscaAberta) {
-                            setTermoBusca('');
-                        }
-                        setBuscaAberta((a) => !a);
-                    }}>
-                    {buscaAberta ? 'Fechar busca' : 'Buscar por descrição'}
-                </BotaoComCarregamento>
-                <BotaoComCarregamento onClick={() => setFiltrosAbertos((a) => !a)}>
-                    {filtrosAbertos ? 'Fechar filtros' : 'Filtros'}
-                </BotaoComCarregamento>
                 <Button variant="outlined" onClick={limparOrdenacao} disabled={ordenacao === null}>
                     Limpar ordenação
                 </Button>
+                <BotaoComCarregamento onClick={() => setFiltrosAbertos((a) => !a)}>
+                    {filtrosAbertos ? 'Fechar filtros' : 'Filtros'}
+                </BotaoComCarregamento>
                 <BotaoComCarregamento onClick={onVoltar}>Voltar</BotaoComCarregamento>
             </CabecalhoView>
 
-            {buscaAberta ? (
-                <TextField
-                    label="Filtrar por código ou descrição"
-                    value={termoBusca}
-                    onChange={(e) => setTermoBusca(e.target.value)}
-                    size="small"
-                    fullWidth
-                    autoFocus />
-            ) : undefined}
-
             {filtrosAbertos ? (
                 <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                    <TextField
+                        label="Filtrar por código ou descrição"
+                        value={termoBusca}
+                        onChange={(e) => setTermoBusca(e.target.value)}
+                        size="small"
+                        sx={{ minWidth: 220, flex: 1 }} />
                     <Autocomplete
                         multiple
                         size="small"
@@ -267,6 +295,9 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
                         onChange={(_evento, valor) => setFiltroColaboradores(valor)}
                         sx={{ minWidth: 220, flex: 1 }}
                         renderInput={(parametros) => <TextField {...parametros} label="Colaborador" placeholder="Todos" />} />
+                    <FormControlLabel
+                        control={<Checkbox checked={inverterFiltros} onChange={(e) => setInverterFiltros(e.target.checked)} />}
+                        label="Inverter filtros" />
                     <Button variant="outlined" onClick={limparFiltros} disabled={filtrosVazios}>
                         Limpar
                     </Button>
@@ -285,7 +316,7 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
                 <Alert severity="warning">Nenhum apontamento encontrado para este sprint.</Alert>
             ) : undefined}
 
-            {resultado && tarefas.length > 0 && tarefasFiltradas.length === 0 && buscaOuFiltrosAtivos ? (
+            {resultado && tarefas.length > 0 && tarefasFiltradas.length === 0 && !filtrosVazios ? (
                 <Alert severity="info">Nenhuma linha corresponde ao filtro.</Alert>
             ) : undefined}
 
@@ -360,6 +391,7 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
                                     onAlternarTachado={alternarTachado}
                                     destacada={destacadas.has(id)}
                                     onAlternarDestaque={alternarDestaque}
+                                    onDuploClique={() => setLinhaDetalhe({ linha, codigoDuplicado })}
                                     larguraCodigo={larguraCodigo}
                                     coresStatus={coresStatus}
                                     coresPrioridade={coresPrioridade}
@@ -376,6 +408,27 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
                 cabecalho={cabecalho}
                 categorias={categorias}
                 responsabilidade={responsabilidade} />
+
+            <SprintDialogDetalheLinha
+                aberto={linhaDetalhe !== null}
+                onFechar={() => setLinhaDetalhe(null)}
+                linha={linhaDetalhe?.linha ?? null}
+                codigoDuplicado={linhaDetalhe?.codigoDuplicado ?? false}
+                larguraCodigo={larguraCodigo}
+                coresStatus={coresStatus}
+                coresPrioridade={coresPrioridade}
+                corTag={corTag} />
+
+            <DialogoConfirmacao
+                aberto={confirmandoFechar}
+                titulo="Fechar sprint"
+                mensagem="Isso trava os dados atuais (Toggl e Jira) como definitivos para este sprint: novas consultas sempre usarão o cache já salvo, sem chamar a API de novo. Você pode reabrir depois na listagem de sprints. Deseja continuar?"
+                textoConfirmar="Fechar"
+                textoCancelar="Cancelar"
+                focoNoCancelar
+                carregando={fechando}
+                onConfirmar={() => void confirmarFechar()}
+                onCancelar={() => setConfirmandoFechar(false)} />
         </Stack>
     );
 }

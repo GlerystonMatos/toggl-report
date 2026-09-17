@@ -7,12 +7,14 @@ import EditIcon from '@mui/icons-material/Edit';
 import { formatarPeriodo } from '../../utils/datas';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { SprintFormDialog } from './SprintFormDialog';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
 import { useNotificacao } from '../../hooks/useNotificacao';
 import { CabecalhoView } from '../../components/CabecalhoView';
 import { DialogoConfirmacao } from '../../components/DialogoConfirmacao';
 import { BotaoComCarregamento } from '../../components/BotaoComCarregamento';
 
 import {
+    Chip,
     Card,
     List,
     Radio,
@@ -34,13 +36,16 @@ interface SprintsPanelProps {
 
 export function SprintsPanel({ sprintSelecionadoChave, onSelecionar, onContinuar, semUsuarios = false }: SprintsPanelProps): ReactNode {
     const { notificarErro, notificarSucesso } = useNotificacao();
-    const { sprints, carregando, carregar, remover } = useSprints();
+    const { sprints, carregando, carregar, remover, reabrir } = useSprints();
 
     const [dialogoAberto, setDialogoAberto] = useState(false);
     const [sprintEmEdicao, setSprintEmEdicao] = useState<Sprint | null>(null);
 
     const [sprintParaExcluir, setSprintParaExcluir] = useState<Sprint | null>(null);
     const [removendoChave, setRemovendoChave] = useState<string | null>(null);
+
+    const [sprintParaReabrir, setSprintParaReabrir] = useState<Sprint | null>(null);
+    const [reabrindoChave, setReabrindoChave] = useState<string | null>(null);
 
     useEffect(() => {
         carregar().catch((erro: unknown) => notificarErro(erro, 'Não foi possível listar os sprints'));
@@ -67,6 +72,23 @@ export function SprintsPanel({ sprintSelecionadoChave, onSelecionar, onContinuar
             notificarErro(erro, 'Não foi possível remover o sprint');
         } finally {
             setRemovendoChave(null);
+        }
+    }
+
+    async function confirmarReabertura(): Promise<void> {
+        if (!sprintParaReabrir) return;
+        setReabrindoChave(sprintParaReabrir.chave);
+        try {
+            const atualizado = await reabrir(sprintParaReabrir.chave);
+            notificarSucesso(`Sprint "${sprintParaReabrir.nome}" reaberto.`);
+            if (sprintSelecionadoChave === atualizado.chave) {
+                onSelecionar(atualizado);
+            }
+            setSprintParaReabrir(null);
+        } catch (erro) {
+            notificarErro(erro, 'Não foi possível reabrir o sprint');
+        } finally {
+            setReabrindoChave(null);
         }
     }
 
@@ -97,6 +119,15 @@ export function SprintsPanel({ sprintSelecionadoChave, onSelecionar, onContinuar
                                 disablePadding
                                 secondaryAction={
                                     <Stack direction="row" spacing={0.5}>
+                                        {sprint.fechado ? (
+                                            <IconButton
+                                                edge="end"
+                                                onClick={() => setSprintParaReabrir(sprint)}
+                                                disabled={reabrindoChave === sprint.chave}
+                                                aria-label="reabrir">
+                                                <LockOpenIcon fontSize="small" />
+                                            </IconButton>
+                                        ) : undefined}
                                         <IconButton edge="end" onClick={() => abrirParaEditar(sprint)} aria-label="editar">
                                             <EditIcon fontSize="small" />
                                         </IconButton>
@@ -118,7 +149,12 @@ export function SprintsPanel({ sprintSelecionadoChave, onSelecionar, onContinuar
                                         tabIndex={-1}
                                         aria-label="Selecionar sprint" />
                                     <ListItemText
-                                        primary={sprint.nome}
+                                        primary={
+                                            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                                                <span>{sprint.nome}</span>
+                                                {sprint.fechado ? <Chip label="Fechado" size="small" /> : undefined}
+                                            </Stack>
+                                        }
                                         secondary={`${formatarPeriodo(sprint.dataInicio, sprint.dataFim)} · ${sprint.horasPorDia}h/dia`} />
                                 </ListItemButton>
                             </ListItem>
@@ -143,7 +179,14 @@ export function SprintsPanel({ sprintSelecionadoChave, onSelecionar, onContinuar
                 sprintEmEdicao={sprintEmEdicao}
                 onFechar={() => setDialogoAberto(false)}
                 onSalvo={(mensagem) => {
-                    carregar().catch((erro: unknown) => notificarErro(erro, 'Não foi possível atualizar a lista'));
+                    carregar()
+                        .then((lista) => {
+                            const atualizado = sprintEmEdicao && lista.find((s) => s.chave === sprintEmEdicao.chave);
+                            if (atualizado && sprintSelecionadoChave === atualizado.chave) {
+                                onSelecionar(atualizado);
+                            }
+                        })
+                        .catch((erro: unknown) => notificarErro(erro, 'Não foi possível atualizar a lista'));
                     notificarSucesso(mensagem);
                 }} />
 
@@ -157,6 +200,16 @@ export function SprintsPanel({ sprintSelecionadoChave, onSelecionar, onContinuar
                 carregando={removendoChave === sprintParaExcluir?.chave}
                 onConfirmar={() => void confirmarRemocao()}
                 onCancelar={() => setSprintParaExcluir(null)} />
+
+            <DialogoConfirmacao
+                aberto={sprintParaReabrir !== null}
+                titulo="Reabrir sprint"
+                mensagem={`Tem certeza que deseja reabrir o sprint "${sprintParaReabrir?.nome}"? A edição e novas consultas à API voltam a ser permitidas.`}
+                textoConfirmar="Reabrir"
+                textoCancelar="Cancelar"
+                carregando={reabrindoChave === sprintParaReabrir?.chave}
+                onConfirmar={() => void confirmarReabertura()}
+                onCancelar={() => setSprintParaReabrir(null)} />
         </Card>
     );
 }

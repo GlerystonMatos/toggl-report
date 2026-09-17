@@ -128,7 +128,9 @@ Jira/            ClienteApiJira (HTTP Basic email:apiToken, normaliza a URL do d
 
 Terceira visualização, com **gestão** (CRUD de sprints) além do acompanhamento.
 Arquivos próprios: `Sprints.ini` (`[Sprint:<chave>]`: Nome/HorasPorDia/DataInicio/
-DataFim), seção `[SprintCategorias]` de `ConfiguracoesGerais.ini` (mapeamento
+DataFim/**Fechado** — bool, desde 2026-09-16, default `False` via `ObterOuPadrao`
+para INI antigo sem a chave, sem migração), seção `[SprintCategorias]` de
+`ConfiguracoesGerais.ini` (mapeamento
 **global** TAG→categoria Dev/Rev/Qa + Agrupamento + TagsDetalhadas + `CorTag` (cor do
 badge/label "Tag" no Sprint, editável em Configurações → Toggl: agrupamento e tags —
 sem TAG default, `Padrao()` vem vazio, `CorTag` também vem vazio; sem cor configurada,
@@ -143,6 +145,30 @@ Data.ini` do relatório/Gant — são arquivos novos, sem "nome antigo" a migrar
 mudança de formato do cache também não migra automaticamente (não dá pra saber a que
 sprint um cache no formato antigo pertencia) — só fica órfão, uma nova consulta
 recria no formato novo.
+
+**Fechar/reabrir sprint** (`DadosSprint.Fechado`, desde 2026-09-16): "Fechar" fica na
+tela de Acompanhamento (`SprintView`, botão antes de "Informações", com confirmação);
+"Reabrir" fica na listagem de sprints (`SprintsPanel`, ícone antes de "Editar", com
+confirmação e um `Chip` "Fechado" ao lado do nome). Fechar **não copia/duplica** dado
+nenhum — reaproveita o cache por sprint já existente (`SprintData.ini`/
+`JiraSprintData.ini`): como uma consulta real nunca mais acontece depois de fechado,
+o cache que já estava salvo vira "definitivo" só por não ser mais sobrescrito.
+Reabrir só volta `Fechado` para `false`, sem mexer em cache nenhum. Efeitos do
+fechamento, sempre reforçados no **backend** (nunca só no frontend, porque o estado
+`origem` do hook `useConsultaSprint` não reseta ao trocar de sprint — um resíduo de
+seleção anterior não pode furar a trava):
+- `PUT /api/sprints/{chave}` (editar Nome/HorasPorDia/Datas) devolve 409 se
+  `Fechado`; no frontend, `SprintFormDialog` já nasce com todos os campos
+  `disabled` e sem botão "Salvar" quando `sprintEmEdicao.fechado` — o 409 é rede de
+  segurança, não o caminho normal.
+- `POST /api/sprint/consultas` carrega o sprint pela `ChaveSprint` e, se `Fechado`,
+  ignora o `origem` recebido e força `"nenhum"`; se mesmo assim não houver cache do
+  Toggl batendo com os parâmetros da consulta, devolve 409 em vez de cair no
+  fallback de chamada real à API — nunca busca Toggl/Jira de verdade para um sprint
+  fechado. No frontend, `ConsultaPanel` (prop `bloqueado`) esconde o seletor
+  "Forçar nova consulta em:" e a checkbox de forçar, mostrando só um aviso.
+- `Fechado`/`Reabrir` são as **únicas** formas de mudar esse campo — não dá pra
+  setar via `PUT` genérico (`EditarSprintRequest` nem tem esse campo).
 
 **Cálculo de capacidade** (`ServicoSprint.Montar`):
 ```
@@ -171,9 +197,15 @@ recebe tag-agg).
   vale para linhas de descrição).
 - Ordenação por **número do código** (`NumeroCodigo`, dígitos extraídos de `Codigo`),
   não por string — `TEL - 994 → TEL - 1000 → TEL - 1118`.
-- **Prioridade/Situação/PRE(DEV) vêm do Jira quando integrado** (ver bloco Jira
-  abaixo) — sem integração ou issue não encontrada, caem no padrão fixo
-  ("Baixa"/"Pendente"/PRE 0h); nunca editáveis nem persistidos pelo app.
+- **Prioridade/Situação/PRE vêm do Jira quando integrado** (ver bloco Jira abaixo)
+  — sem integração ou issue não encontrada, badge de Prioridade e de Situação caem
+  em "Nenhuma" (cinza) e PRE cai em "–" em cada grupo sem campo configurado; nunca
+  editáveis nem persistidos pelo app.
+- **Duplo clique numa linha da grid** abre `SprintDialogDetalheLinha` — mesmas
+  cores/badges da grid, valores por extenso em vez de abreviados (não é um padrão
+  novo de modal, só reaproveita `Dialog`/`DialogTitle`/`DialogContent`/
+  `DialogActions` do MUI, como o `SprintDialogInfo`). Clique no checkbox ou no link
+  do código continua com `stopPropagation`, não abre o modal.
 - Frontend detecta **duplicidade visual** (`calcularColisaoPosicao`, cliente): quando
   a mesclagem abre >1 linha de descrição para a mesma `(codigo, descricao)` por dois
   colaboradores disputarem a mesma posição, Código+Descrição ficam em vermelho —
@@ -193,8 +225,14 @@ e carregador (`CarregadorCacheSprintIni`) separados). Só roda quando o Jira est
 configurado e há uma consulta real (não em reaproveitamento de cache); falha de
 rede/autenticação do Jira nunca quebra a consulta do Toggl. `ServicoSprint.Montar`
 aplica o resultado só a linhas de descrição (nunca tag-agg): `Prioridade`/`Situacao`
-da linha e `PreHoras`/`EstimativaOriginalHoras` do bloco **DEV** (REV/QA continuam
-sempre 0/null). **`GET /rest/api/3/search` foi descontinuado pelo Jira** (410 Gone) —
+da linha, e `PreHoras` de **cada** bloco DEV/REV/QA a partir de um campo customizado
+do Jira próprio por grupo — `CampoEstimativaDesenvolvimentoId`, `CampoEstimativaRevisaoId`,
+`CampoEstimativaTestesId` (`ConfiguracaoJira`, cada um configurável independentemente
+em Configurações → Jira: conexão, mesmo mecanismo de descoberta/seleção dos campos
+customizados já usado por `CampoRevisadoPorId`) — sem o campo daquele grupo
+configurado, `PreHoras` fica 0. Só o bloco **DEV** recebe também
+`EstimativaOriginalHoras` (campo nativo `timeoriginalestimate`, da issue inteira, não
+por grupo). **`GET /rest/api/3/search` foi descontinuado pelo Jira** (410 Gone) —
 usar sempre `POST /rest/api/3/search/jql`. `IssueJira.UrlIssue` (`<dominio>/browse/<chave>`) vira link no Código da grid; a cor
 de duplicidade é aplicada **direto no link** (`sx` do próprio `<a>`), nunca por
 herança de um `TableCell` ancestral — um elemento com `color` próprio não herda do
@@ -210,10 +248,11 @@ pai mesmo com `!important` no ancestral.
 - **`IssueJira.Responsavel`/`RevisadoPor`**: `Responsavel` vem sempre do campo nativo
   `assignee` (não configurável); `RevisadoPor` vem de um campo customizado do Jira,
   configurável em Configurações → Jira: conexão (`ConfiguracaoJira.
-  CampoRevisadoPorId`/`CampoRevisadoPorNome`, mesmo molde de
-  `CampoEstimativaEsforcoId`/`Nome` — não é hardcoded, é específico de cada instância
-  Jira). Os dois são extraídos do mesmo formato "user picker" do Jira
-  (`{accountId, displayName, ...}`), só o `displayName`.
+  CampoRevisadoPorId`/`CampoRevisadoPorNome`, mesmo molde Id+Nome dos três campos de
+  estimativa (`CampoEstimativaDesenvolvimentoId`/`CampoEstimativaRevisaoId`/
+  `CampoEstimativaTestesId`, ver PRE por grupo acima) — não é hardcoded, é específico
+  de cada instância Jira. `RevisadoPor` é extraído do formato "user picker" do Jira
+  (`{accountId, displayName, ...}`), só o `displayName` — igual ao `assignee`.
 - **Fallback DEV/REV via mapeamento Jira↔Toggl** — regra crítica, já reimplementada
   mais de uma vez em prompts anteriores; **DEV vem de `Responsavel`, REV vem de
   `RevisadoPor`, nunca o contrário**. `ConfiguracaoMapeamentoJiraToggl.Mapeamento`
@@ -267,15 +306,25 @@ compartilhado com Relatório/Gant), o seletor de 4 opções ("Forçar nova consu
 em:") substitui o checkbox de forçar só para o Sprint — Relatório/Gant continuam
 com o checkbox simples de sempre, sem esse seletor.
 
-**Listagem do Sprint — filtros e ordenação** (`SprintView.tsx`, desde 2026-09-16): a
-coluna de status da tarefa é **"Status"** (renomeada de "Situação"; a "Situação"
-por bloco DEV/REV/QA — Pendente/Concluído — continua com esse nome, é outro
-conceito). Filtro múltiplo por Prioridade/Status/Colaborador (sobre os dados já
-carregados, sem nova consulta) atrás do botão "Filtros", com botão "Limpar"
-dedicado (reseta só esses 3 filtros). Ordenação clicável nos cabeçalhos de
-Prioridade (por severidade) e Status (alfabética), com botão "Limpar ordenação"
-separado (reseta só a ordenação) — os dois botões de reset são deliberadamente
-independentes, um nunca afeta o outro.
+**Listagem do Sprint — busca, filtros e ordenação** (`SprintView.tsx`): a coluna de
+status da tarefa é **"Status"** (renomeada de "Situação"; a "Situação" por bloco
+DEV/REV/QA — Pendente/Concluído — continua com esse nome, é outro conceito). O
+antigo botão "Buscar por descrição" foi removido — a busca por código/descrição
+virou o **primeiro campo dentro do painel "Filtros"** (não é mais um recurso
+independente), seguida dos filtros múltiplos de Prioridade/Status/Colaborador
+(sobre os dados já carregados, sem nova consulta) e, por fim, o checkbox **"Inverter
+filtros"** (antes do botão "Limpar") — quando marcado, os 3 filtros de seleção
+passam a **excluir** as linhas com os valores escolhidos em vez de restringir a
+elas (a busca por texto nunca é afetada pela inversão, sempre inclui). Botão
+"Limpar" reseta busca + filtros + inversão juntos. Ordenação clicável nos
+cabeçalhos de Prioridade (por severidade) e Status (alfabética), com botão "Limpar
+ordenação" separado (reseta só a ordenação) — os dois botões de reset são
+deliberadamente independentes, um nunca afeta o outro. A tabela "Colaboradores"
+tem um botão "+"/"–" ao lado do título que recolhe/expande a tabela inteira
+(estado local, padrão expandido, não persistido). O botão "Informações" abre um
+diálogo organizado em **abas** (`Tabs`/`Tab` do MUI, mesmo padrão da navegação
+principal em `App.tsx`) — Capacidade, Categorias e Jira, Pré-requisitos e ciclo de
+vida, Como a listagem é montada, Como ler cada coluna, Controles da tela.
 
 **Prioridade/Situação/responsabilidade**: a API do Jira não expõe cor por prioridade
 dentro da busca de issues (só no endpoint `GET /rest/api/3/priority`, que exigiria
@@ -308,8 +357,8 @@ tarefa encontrada no Jira, mas o status não bate com nenhuma das três listas �
 misturando "sem responsável definido" com "não há mais nada pendente"); (3) sem
 nenhuma responsabilidade configurada, ou tarefa não encontrada no Jira, todo grupo
 com colaborador mostra "Pendente" (padrão antigo, preservado). Todo texto de badge
-(Prioridade/Situação/TAG/`BadgeSigla`) é sempre branco (`common.white`), inclusive
-nas cores mais claras (ex.: "Muito baixa"). Os badges de Prioridade/Situação
+(Prioridade/Situação/TAG/`BadgeSigla`) usa a cor padrão de texto do tema
+(`text.primary`), não branco fixo (`common.white`). Os badges de Prioridade/Situação
 (`BadgeTexto`) têm **largura fixa** (não só mínima) com `text-overflow: ellipsis` +
 `Tooltip` do nome completo — evita que um status longo do Jira alargue só a própria
 badge dentro da coluna, deixando badges de tamanhos desiguais na mesma coluna.
@@ -337,10 +386,12 @@ global, Swagger em `/swagger` (título "Toggl Report API"). Sobe em
 | `GET/PUT` | `/api/gant/parametros` | parâmetros próprios do Gant; `dataInicio`/`dataFim` opcionais no PUT, mesma regra de `/api/configuracao` |
 | `POST` | `/api/gant/consultas` | idem `/api/consultas`, grava `GantData.ini` |
 | `GET` | `/api/gant?dataInicio=&dataFim=&termo=` | 409 sem cache; `termo` filtra antes de agrupar |
-| `GET/POST/PUT/DELETE` | `/api/sprints` | CRUD de sprints |
+| `GET/POST/PUT/DELETE` | `/api/sprints` | CRUD de sprints; `PUT` devolve 409 se o sprint estiver fechado |
+| `POST` | `/api/sprints/{chave}/fechar` | Marca o sprint como fechado (trava edição e consulta) |
+| `POST` | `/api/sprints/{chave}/reabrir` | Marca o sprint como aberto de novo |
 | `GET/PUT` | `/api/sprint/categorias` | mapeamento DEV/REV/QA + agrupamento + tags (fonte usada pela aba Configurações) |
 | `GET/PUT` | `/api/sprint/responsabilidade` | mapeamento status do Jira → DEV/REV/QA |
-| `POST` | `/api/sprint/consultas` | cache-first via `ServicoConsulta`; `chaveSprint` (obrigatório) isola a seção gravada em `SprintData.ini`/`JiraSprintData.ini`; `origem` (`nenhum`\|`toggl`\|`jira`\|`ambos`, default `nenhum`) escolhe o que forçar (não a fonte) |
+| `POST` | `/api/sprint/consultas` | cache-first via `ServicoConsulta`; `chaveSprint` (obrigatório) isola a seção gravada em `SprintData.ini`/`JiraSprintData.ini`; `origem` (`nenhum`\|`toggl`\|`jira`\|`ambos`, default `nenhum`) escolhe o que forçar (não a fonte); sprint fechado ignora `origem` e devolve 409 se não houver cache batendo |
 | `GET` | `/api/sprint?chaveSprint=` | 409 sem cache p/ o período do sprint |
 | `GET/PUT` | `/api/jira/configuracao` | URL/e-mail/campo de estimativa; token sempre mascarado na resposta |
 | `POST` | `/api/jira/testar-conexao` | credenciais explícitas, sem salvar (`GET /rest/api/3/myself`) |
@@ -360,8 +411,9 @@ manter explícito quando uma chamada HTTP externa ao Toggl acontece (rate limit)
 
 **Jira tem duas frentes**: (1) config isolada (seção `[Jira]` de
 `ConfiguracoesGerais.ini`) — URL do domínio,
-e-mail, API Token (criptografado como o do Toggl) e o campo customizado de "estimativa
-de esforço" (descoberto via `POST /api/jira/campos`, filtrado a `custom: true`); token
+e-mail, API Token (criptografado como o do Toggl) e os três campos customizados de
+estimativa — Desenvolvimento/Revisão/Testes — mais "Revisado por" (todos descobertos
+via `POST /api/jira/campos`, filtrado a `custom: true`); token
 nunca volta em texto puro depois de salvo (`ServicoUsuariosToggl.MascararToken`,
 reaproveitado); (2) integração real com o Sprint (`POST /api/jira/issues`, embutida em
 `POST /api/sprint/consultas`) — busca em lote por JQL prioridade/situação/estimativas,
@@ -416,9 +468,15 @@ barra de ações de cada estágio é sempre `[Resumo] [Voltar] [Avançar|Conclui
 topo) salvam a etapa atual antes de navegar (`salvarEtapaAtual`, centralizado em
 `ConfiguracoesWizard.tsx`) — decisão de 2026-09-15/16, substituindo um botão "Voltar
 ao resumo" único e incondicional que ficava fixo no topo do wizard (ver nota abaixo).
-As 4 configurações continuam obrigatórias para habilitar Relatório/Gant/Sprint
-(`onAlterado`/`configuracaoCompleta`, calculado independente do modo exibido); o
-mapeamento Jira↔Toggl é opcional (só habilita o fallback quando preenchido).
+A liberação das abas Relatório/Gant/Sprint (`onAlterado`/`configuracaoCompleta`,
+calculado independente do modo exibido) depende de 4 campos obrigatórios — Agrupamento,
+Tags detalhadas (só exigido quando o agrupamento é "ambos"), Tags DEV/REV/QA do Toggl
+e Status DEV/REV/QA do Jira — todos dentro dos estágios 2 ("Toggl: agrupamento e
+tags") e 4 ("Jira: status e cores") do wizard. Usuários do Toggl (estágio 1,
+cadastro/`Administrador`) e a conexão do Jira (estágio 3, URL/e-mail/token)
+aparecem como blocos no resumo mas **não** entram nesse cálculo — só o mapeamento
+Jira↔Toggl (estágio 5) é de fato opcional (só habilita o fallback quando
+preenchido).
 
 ```bash
 cd toggl-report-front && npm install && npm run dev   # :5173
@@ -440,8 +498,8 @@ App.tsx         Tabs + Steppers + estado elevado (configuracao/configuracaoGant/
 ```
 
 **Componentes compartilhados a preferir antes de duplicar**: `BadgeSigla` (tooltip
-com nome completo via `nome`, texto sempre branco, replicado no
-`<Chip>` do Gant; cantos retos por padrão, arredondado (`borderRadius: 1`) em três
+com nome completo via `nome`, texto na cor padrão do tema (`text.primary`),
+replicado no `<Chip>` do Gant; cantos retos por padrão, arredondado (`borderRadius: 1`) em três
 lugares: listagem de Usuários do Toggl, `AccordionSummary` do Relatório e tabela
 "Colaboradores" do Sprint — grid DEV/REV/QA e grade do Gant seguem quadrados;
 `ConsultaPanel` mostra "usuários selecionados" inline, sem tabela/grid),

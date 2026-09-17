@@ -207,9 +207,9 @@ public static class ServicoSprint
                     codigo,
                     descricao,
                     agrupada,
-                    CriarBloco(linha[0], issueJira),
-                    CriarBloco(linha[1]),
-                    CriarBloco(linha[2]),
+                    CriarBloco(linha[0], issueJira?.EstimativaDesenvolvimentoHoras ?? 0m, issueJira?.EstimativaOriginalHoras),
+                    CriarBloco(linha[1], issueJira?.EstimativaRevisaoHoras ?? 0m),
+                    CriarBloco(linha[2], issueJira?.EstimativaTestesHoras ?? 0m),
                     issueJira?.Prioridade,
                     issueJira?.Situacao,
                     issueJira?.UrlIssue,
@@ -391,6 +391,6 @@ public static class ServicoSprint
         linhasEmConstrucao[0][categoria] = new SlotColaborador(nomeJira, entrada.Sigla, entrada.Cor, 0);
     }
 
-    private static BlocoCategoriaSprint CriarBloco(SlotColaborador slot, IssueJira? issueJira = null) =>
-        new(issueJira?.EstimativaEsforcoHoras ?? 0m, slot.Segundos, slot.NomeExibicao, slot.Sigla, slot.Cor, issueJira?.EstimativaOriginalHoras);
+    private static BlocoCategoriaSprint CriarBloco(SlotColaborador slot, decimal preHoras = 0m, decimal? estimativaOriginalHoras = null) =>
+        new(preHoras, slot.Segundos, slot.NomeExibicao, slot.Sigla, slot.Cor, estimativaOriginalHoras);
 }

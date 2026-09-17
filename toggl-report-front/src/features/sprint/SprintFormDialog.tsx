@@ -24,6 +24,7 @@ interface SprintFormDialogProps {
 
 export function SprintFormDialog({ aberto, sprintEmEdicao, onFechar, onSalvo }: SprintFormDialogProps): ReactNode {
     const emEdicao = sprintEmEdicao !== null;
+    const somenteLeitura = sprintEmEdicao?.fechado ?? false;
     const { criar, editar } = useSprints();
     const { notificarErro } = useNotificacao();
 
@@ -80,7 +81,7 @@ export function SprintFormDialog({ aberto, sprintEmEdicao, onFechar, onSalvo }: 
 
     return (
         <Dialog open={aberto} onClose={salvando ? undefined : fecharEResetar} fullWidth maxWidth="sm">
-            <DialogTitle>{emEdicao ? 'Editar sprint' : 'Adicionar sprint'}</DialogTitle>
+            <DialogTitle>{somenteLeitura ? 'Sprint fechado (somente leitura)' : emEdicao ? 'Editar sprint' : 'Adicionar sprint'}</DialogTitle>
             <DialogContent>
                 <Stack spacing={2} sx={{ mt: 1 }}>
                     <TextField
@@ -89,7 +90,7 @@ export function SprintFormDialog({ aberto, sprintEmEdicao, onFechar, onSalvo }: 
                         onChange={(evento) => setNome(evento.target.value)}
                         autoFocus
                         fullWidth
-                        disabled={salvando} />
+                        disabled={salvando || somenteLeitura} />
 
                     <TextField
                         label="Horas por dia"
@@ -104,7 +105,7 @@ export function SprintFormDialog({ aberto, sprintEmEdicao, onFechar, onSalvo }: 
                         }
                         slotProps={{ htmlInput: { min: 0, step: 0.5 } }}
                         fullWidth
-                        disabled={salvando} />
+                        disabled={salvando || somenteLeitura} />
 
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                         <TextField
@@ -114,7 +115,7 @@ export function SprintFormDialog({ aberto, sprintEmEdicao, onFechar, onSalvo }: 
                             onChange={(evento) => setDataInicio(evento.target.value)}
                             slotProps={{ inputLabel: { shrink: true } }}
                             fullWidth
-                            disabled={salvando} />
+                            disabled={salvando || somenteLeitura} />
                         <TextField
                             label="Data fim"
                             type="date"
@@ -128,21 +129,23 @@ export function SprintFormDialog({ aberto, sprintEmEdicao, onFechar, onSalvo }: 
                             }
                             slotProps={{ inputLabel: { shrink: true } }}
                             fullWidth
-                            disabled={salvando} />
+                            disabled={salvando || somenteLeitura} />
                     </Stack>
                 </Stack>
             </DialogContent>
             <DialogActions>
                 <BotaoComCarregamento onClick={fecharEResetar} disabled={salvando}>
-                    Cancelar
+                    {somenteLeitura ? 'Fechar' : 'Cancelar'}
                 </BotaoComCarregamento>
-                <BotaoComCarregamento
-                    variant="contained"
-                    carregando={salvando}
-                    disabled={!formValido}
-                    onClick={() => void salvar()}>
-                    Salvar
-                </BotaoComCarregamento>
+                {!somenteLeitura ? (
+                    <BotaoComCarregamento
+                        variant="contained"
+                        carregando={salvando}
+                        disabled={!formValido}
+                        onClick={() => void salvar()}>
+                        Salvar
+                    </BotaoComCarregamento>
+                ) : undefined}
             </DialogActions>
         </Dialog>
     );

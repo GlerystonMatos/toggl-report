@@ -8,9 +8,17 @@ public class ConfiguracaoJira
 
     public string ApiToken { get; set; } = "";
 
-    public string CampoEstimativaEsforcoId { get; set; } = "";
+    public string CampoEstimativaDesenvolvimentoId { get; set; } = "";
 
-    public string CampoEstimativaEsforcoNome { get; set; } = "";
+    public string CampoEstimativaDesenvolvimentoNome { get; set; } = "";
+
+    public string CampoEstimativaRevisaoId { get; set; } = "";
+
+    public string CampoEstimativaRevisaoNome { get; set; } = "";
+
+    public string CampoEstimativaTestesId { get; set; } = "";
+
+    public string CampoEstimativaTestesNome { get; set; } = "";
 
     public string CampoRevisadoPorId { get; set; } = "";
 

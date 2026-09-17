@@ -186,16 +186,20 @@ public class ClienteApiJira
         }
     }
 
-    public async Task<ResultadoApiJira<List<IssueJira>>> BuscarIssuesAsync(List<string> chaves, string campoEstimativaEsforcoId, string? campoRevisadoPorId = null)
+    public async Task<ResultadoApiJira<List<IssueJira>>> BuscarIssuesAsync(List<string> chaves, string campoEstimativaDesenvolvimentoId, string? campoRevisadoPorId = null, string? campoEstimativaRevisaoId = null, string? campoEstimativaTestesId = null)
     {
         if (chaves.Count == 0)
             return ResultadoApiJira<List<IssueJira>>.Ok(new List<IssueJira>());
 
         List<string> camposDesejados = new() { "priority", "status", "timeoriginalestimate", "assignee" };
-        if (!string.IsNullOrWhiteSpace(campoEstimativaEsforcoId))
-            camposDesejados.Add(campoEstimativaEsforcoId);
+        if (!string.IsNullOrWhiteSpace(campoEstimativaDesenvolvimentoId))
+            camposDesejados.Add(campoEstimativaDesenvolvimentoId);
         if (!string.IsNullOrWhiteSpace(campoRevisadoPorId))
             camposDesejados.Add(campoRevisadoPorId);
+        if (!string.IsNullOrWhiteSpace(campoEstimativaRevisaoId))
+            camposDesejados.Add(campoEstimativaRevisaoId);
+        if (!string.IsNullOrWhiteSpace(campoEstimativaTestesId))
+            camposDesejados.Add(campoEstimativaTestesId);
 
         string jql = $"key in ({string.Join(",", chaves)})";
         List<IssueBrutaJira> issuesBrutas = new();
@@ -239,11 +243,13 @@ public class ClienteApiJira
                     issue.Fields.Priority?.Name,
                     issue.Fields.Status?.Name,
                     issue.Fields.Timeoriginalestimate.HasValue ? issue.Fields.Timeoriginalestimate.Value / 3600m : null,
-                    ExtrairEstimativaEsforco(issue.Fields.CamposExtras, campoEstimativaEsforcoId),
+                    ExtrairEstimativaEsforco(issue.Fields.CamposExtras, campoEstimativaDesenvolvimentoId),
                     MontarUrlIssue(issue.Key),
                     issue.Fields.Status?.StatusCategory?.Key,
                     ExtrairNomeUsuario(issue.Fields.CamposExtras, "assignee"),
-                    ExtrairNomeUsuario(issue.Fields.CamposExtras, campoRevisadoPorId)))
+                    ExtrairNomeUsuario(issue.Fields.CamposExtras, campoRevisadoPorId),
+                    ExtrairEstimativaEsforco(issue.Fields.CamposExtras, campoEstimativaRevisaoId ?? ""),
+                    ExtrairEstimativaEsforco(issue.Fields.CamposExtras, campoEstimativaTestesId ?? "")))
                 .ToList();
 
             return ResultadoApiJira<List<IssueJira>>.Ok(issues);

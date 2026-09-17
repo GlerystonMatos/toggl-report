@@ -13,7 +13,7 @@ public static class SprintsEndpoints
         {
             List<DadosSprint> sprints = CarregadorSprintsIni.Carregar(caminhoSprints);
             List<SprintDto> resposta = sprints
-                .Select(s => new SprintDto(s.Chave, s.Nome, s.HorasPorDia, s.DataInicio, s.DataFim))
+                .Select(s => new SprintDto(s.Chave, s.Nome, s.HorasPorDia, s.DataInicio, s.DataFim, s.Fechado))
                 .ToList();
             return Results.Ok(resposta);
         })
@@ -53,7 +53,7 @@ public static class SprintsEndpoints
                 return erroPersistencia;
 
             return Results.Created($"/api/sprints/{chave}",
-                new SprintDto(sprint.Chave, sprint.Nome, sprint.HorasPorDia, sprint.DataInicio, sprint.DataFim));
+                new SprintDto(sprint.Chave, sprint.Nome, sprint.HorasPorDia, sprint.DataInicio, sprint.DataFim, sprint.Fechado));
         })
         .WithSummary("Cadastra um sprint");
 
@@ -63,6 +63,9 @@ public static class SprintsEndpoints
             DadosSprint? sprint = sprints.FirstOrDefault(s => s.Chave == chave);
             if (sprint is null)
                 return Results.NotFound();
+
+            if (sprint.Fechado)
+                return Results.Conflict("Este sprint está fechado. Reabra-o para editar.");
 
             string nome = string.IsNullOrWhiteSpace(request.Nome) ? sprint.Nome : request.Nome;
             decimal horasPorDia = request.HorasPorDia ?? sprint.HorasPorDia;
@@ -89,9 +92,47 @@ public static class SprintsEndpoints
             if (erroPersistencia is not null)
                 return erroPersistencia;
 
-            return Results.Ok(new SprintDto(sprint.Chave, sprint.Nome, sprint.HorasPorDia, sprint.DataInicio, sprint.DataFim));
+            return Results.Ok(new SprintDto(sprint.Chave, sprint.Nome, sprint.HorasPorDia, sprint.DataInicio, sprint.DataFim, sprint.Fechado));
         })
         .WithSummary("Edita um sprint (campos nulos ou omitidos não são alterados)");
+
+        grupo.MapPost("/{chave}/fechar", (string chave) =>
+        {
+            List<DadosSprint> sprints = CarregadorSprintsIni.Carregar(caminhoSprints);
+            DadosSprint? sprint = sprints.FirstOrDefault(s => s.Chave == chave);
+            if (sprint is null)
+                return Results.NotFound();
+
+            sprint.Fechado = true;
+
+            IResult? erroPersistencia = TratamentoIo.Executar(
+                () => CarregadorSprintsIni.Salvar(caminhoSprints, sprints),
+                "Não foi possível salvar os sprints.");
+            if (erroPersistencia is not null)
+                return erroPersistencia;
+
+            return Results.Ok(new SprintDto(sprint.Chave, sprint.Nome, sprint.HorasPorDia, sprint.DataInicio, sprint.DataFim, sprint.Fechado));
+        })
+        .WithSummary("Fecha o sprint: trava a edição e faz a consulta sempre usar o cache já salvo (Toggl e Jira)");
+
+        grupo.MapPost("/{chave}/reabrir", (string chave) =>
+        {
+            List<DadosSprint> sprints = CarregadorSprintsIni.Carregar(caminhoSprints);
+            DadosSprint? sprint = sprints.FirstOrDefault(s => s.Chave == chave);
+            if (sprint is null)
+                return Results.NotFound();
+
+            sprint.Fechado = false;
+
+            IResult? erroPersistencia = TratamentoIo.Executar(
+                () => CarregadorSprintsIni.Salvar(caminhoSprints, sprints),
+                "Não foi possível salvar os sprints.");
+            if (erroPersistencia is not null)
+                return erroPersistencia;
+
+            return Results.Ok(new SprintDto(sprint.Chave, sprint.Nome, sprint.HorasPorDia, sprint.DataInicio, sprint.DataFim, sprint.Fechado));
+        })
+        .WithSummary("Reabre o sprint: libera a edição e volta a permitir consulta real à API");
 
         grupo.MapDelete("/{chave}", (string chave) =>
         {

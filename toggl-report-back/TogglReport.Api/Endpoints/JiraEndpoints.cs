@@ -34,10 +34,14 @@ public static class JiraEndpoints
             configuracao.Email = request.Email.Trim();
             if (!string.IsNullOrWhiteSpace(request.ApiToken))
                 configuracao.ApiToken = request.ApiToken.Trim();
-            configuracao.CampoEstimativaEsforcoId = request.CampoEstimativaEsforcoId;
-            configuracao.CampoEstimativaEsforcoNome = request.CampoEstimativaEsforcoNome;
+            configuracao.CampoEstimativaDesenvolvimentoId = request.CampoEstimativaDesenvolvimentoId;
+            configuracao.CampoEstimativaDesenvolvimentoNome = request.CampoEstimativaDesenvolvimentoNome;
             configuracao.CampoRevisadoPorId = request.CampoRevisadoPorId;
             configuracao.CampoRevisadoPorNome = request.CampoRevisadoPorNome;
+            configuracao.CampoEstimativaRevisaoId = request.CampoEstimativaRevisaoId;
+            configuracao.CampoEstimativaRevisaoNome = request.CampoEstimativaRevisaoNome;
+            configuracao.CampoEstimativaTestesId = request.CampoEstimativaTestesId;
+            configuracao.CampoEstimativaTestesNome = request.CampoEstimativaTestesNome;
 
             IResult? erroPersistencia = TratamentoIo.Executar(
                 () => CarregadorConfiguracaoJiraIni.Salvar(caminhoConfiguracoesGerais, configuracao),
@@ -47,7 +51,7 @@ public static class JiraEndpoints
 
             return Results.Ok(ParaDto(configuracao));
         })
-        .WithSummary("Salva/atualiza a configuração do Jira (URL, e-mail, API Token e campos de estimativa de esforço e revisado por)");
+        .WithSummary("Salva/atualiza a configuração do Jira (URL, e-mail, API Token e campos de estimativa de desenvolvimento, revisão, testes e revisado por)");
 
         grupo.MapPost("/testar-conexao", async (TestarConexaoJiraRequest request) =>
         {
@@ -103,16 +107,16 @@ public static class JiraEndpoints
             if (cliente is null)
                 return Results.BadRequest(erroUrl);
 
-            ResultadoApiJira<List<IssueJira>> resultado = await cliente.BuscarIssuesAsync(request.Codigos, configuracaoSalva.CampoEstimativaEsforcoId, configuracaoSalva.CampoRevisadoPorId);
+            ResultadoApiJira<List<IssueJira>> resultado = await cliente.BuscarIssuesAsync(request.Codigos, configuracaoSalva.CampoEstimativaDesenvolvimentoId, configuracaoSalva.CampoRevisadoPorId, configuracaoSalva.CampoEstimativaRevisaoId, configuracaoSalva.CampoEstimativaTestesId);
             if (!resultado.Sucesso)
                 return Results.BadRequest(resultado.MensagemErro);
 
             List<IssueJiraDto> issues = resultado.Dados!
-                .Select(issue => new IssueJiraDto(issue.Chave, issue.Prioridade, issue.Situacao, issue.EstimativaOriginalHoras, issue.EstimativaEsforcoHoras, issue.UrlIssue, issue.SituacaoCategoria, issue.Responsavel, issue.RevisadoPor))
+                .Select(issue => new IssueJiraDto(issue.Chave, issue.Prioridade, issue.Situacao, issue.EstimativaOriginalHoras, issue.EstimativaDesenvolvimentoHoras, issue.UrlIssue, issue.SituacaoCategoria, issue.Responsavel, issue.RevisadoPor, issue.EstimativaRevisaoHoras, issue.EstimativaTestesHoras))
                 .ToList();
             return Results.Ok(issues);
         })
-        .WithSummary("Busca em lote (JQL key in (...)) prioridade, situação, estimativa original e estimativa de esforço, usando a configuração já salva");
+        .WithSummary("Busca em lote (JQL key in (...)) prioridade, situação, estimativa original e estimativas de desenvolvimento/revisão/testes, usando a configuração já salva");
 
         grupo.MapGet("/status", async (bool forcarAtualizacao) =>
         {
@@ -309,8 +313,12 @@ public static class JiraEndpoints
         configuracao.UrlDominio,
         configuracao.Email,
         ServicoUsuariosToggl.MascararToken(configuracao.ApiToken),
-        configuracao.CampoEstimativaEsforcoId,
-        configuracao.CampoEstimativaEsforcoNome,
+        configuracao.CampoEstimativaDesenvolvimentoId,
+        configuracao.CampoEstimativaDesenvolvimentoNome,
         configuracao.CampoRevisadoPorId,
-        configuracao.CampoRevisadoPorNome);
+        configuracao.CampoRevisadoPorNome,
+        configuracao.CampoEstimativaRevisaoId,
+        configuracao.CampoEstimativaRevisaoNome,
+        configuracao.CampoEstimativaTestesId,
+        configuracao.CampoEstimativaTestesNome);
 }

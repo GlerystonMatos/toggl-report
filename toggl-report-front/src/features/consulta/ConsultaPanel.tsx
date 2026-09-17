@@ -38,6 +38,7 @@ interface ConsultaPanelProps {
     categorias?: { dev: string[]; rev: string[]; qa: string[] };
     responsabilidade?: { statusDev: string[]; statusRev: string[]; statusQa: string[] };
     origemConsulta?: OrigemConsultaProps;
+    bloqueado?: boolean;
     resultado: ConsultarResponse | null;
     consultando: boolean;
     executar: (dataInicio: string, dataFim: string, forcarConsultaApi: boolean, origem?: OrigemConsultaSprint) => Promise<ConsultarResponse>;
@@ -64,6 +65,7 @@ export function ConsultaPanel({
     categorias,
     responsabilidade,
     origemConsulta,
+    bloqueado = false,
     resultado,
     consultando,
     executar,
@@ -73,14 +75,17 @@ export function ConsultaPanel({
     const { notificarErro } = useNotificacao();
     const [forcarConsultaApi, setForcarConsultaApi] = useState(false);
     const [confirmandoConsultaForcada, setConfirmandoConsultaForcada] = useState(false);
-    const rotuloConsultar = origemConsulta ? ROTULO_CONSULTAR[origemConsulta.valor] : 'Consultar';
-    const vaiForcarToggl = origemConsulta
-        ? origemConsulta.valor === 'toggl' || origemConsulta.valor === 'ambos'
-        : forcarConsultaApi;
+    const origemEfetiva: OrigemConsultaSprint | undefined = bloqueado ? 'nenhum' : origemConsulta?.valor;
+    const rotuloConsultar = origemConsulta === undefined || bloqueado ? 'Consultar' : ROTULO_CONSULTAR[origemConsulta.valor];
+    const vaiForcarToggl = bloqueado
+        ? false
+        : origemConsulta
+            ? origemConsulta.valor === 'toggl' || origemConsulta.valor === 'ambos'
+            : forcarConsultaApi;
 
     async function consultarAgora(): Promise<void> {
         try {
-            const resposta = await executar(dataInicio, dataFim, forcarConsultaApi, origemConsulta?.valor);
+            const resposta = await executar(dataInicio, dataFim, bloqueado ? false : forcarConsultaApi, origemEfetiva);
             if (temDadoAproveitavel(resposta)) {
                 onConcluida(resposta);
             }
@@ -137,7 +142,13 @@ export function ConsultaPanel({
                         </Stack>
                     ) : undefined}
 
-                    {origemConsulta !== undefined ? (
+                    {bloqueado ? (
+                        <Alert severity="info">
+                            Sprint fechado: os dados ficam travados no que foi salvo ao fechar. A consulta sempre usa
+                            o cache do Toggl e do Jira, sem chamar a API de novo. Reabra o sprint na listagem para
+                            liberar edição e novas consultas.
+                        </Alert>
+                    ) : origemConsulta !== undefined ? (
                         <Stack spacing={0.5}>
                             <Typography variant="body2" color="text.secondary">Forçar nova consulta em:</Typography>
                             <ToggleButtonGroup
@@ -163,7 +174,7 @@ export function ConsultaPanel({
 
                     <Divider />
 
-                    {origemConsulta === undefined ? (
+                    {origemConsulta === undefined && !bloqueado ? (
                         <FormControlLabel
                             control={
                                 <Checkbox
