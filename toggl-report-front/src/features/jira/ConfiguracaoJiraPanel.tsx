@@ -12,6 +12,7 @@ import {
     Card,
     Alert,
     Stack,
+    Divider,
     TextField,
     Typography,
     CardContent,
@@ -219,6 +220,17 @@ export const ConfiguracaoJiraPanel = forwardRef<ConfiguracaoJiraPanelHandle, Con
                                     {resultadoTeste.mensagem ?? 'Não foi possível conectar.'}
                                 </Alert>
                             ) : undefined}
+                        </Stack>
+
+                        <Divider />
+                        <Stack spacing={0.5}>
+                            <Typography variant="subtitle1">Mapeamento de Campos</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                Campos customizados do Jira usados pelo Sprint: cada estimativa alimenta o PRE do
+                                grupo correspondente (Desenvolvimento/Revisão/Testes); "Revisado por" alimenta o
+                                fallback automático de colaborador. Todos são opcionais e configuráveis
+                                independentemente.
+                            </Typography>
                         </Stack>
 
                         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>

@@ -11,6 +11,7 @@ import {
     corDaSituacao,
     formatarCodigo,
     infoPrioridade,
+    truncarDescricao,
     formatarHoraResumida,
 } from './calculos';
 
@@ -149,7 +150,7 @@ export function SprintLinhaTarefa({
                                 ? { color: COR_PENDENTE, fontWeight: 700 }
                                 : {}),
                         }}>
-                        {linha.descricao || '(sem descrição)'}
+                        {truncarDescricao(linha.descricao || '(sem descrição)')}
                     </Box>
                 </Tooltip>
             </TableCell>
@@ -158,9 +159,7 @@ export function SprintLinhaTarefa({
                 const temColaborador = bloco.nomeExibicao !== null;
                 const preSegundos = Math.round(bloco.preHoras * 3600);
                 const reaExcedePre = preSegundos > 0 && bloco.reaSegundos > preSegundos;
-                const tooltipPre = grupo.bloco === 'dev' && bloco.estimativaOriginalHoras !== null
-                    ? `Estimativa original: ${formatarDuracao(Math.round(bloco.estimativaOriginalHoras * 3600))} · Estimativa de esforço: ${formatarDuracao(preSegundos)}`
-                    : formatarDuracao(preSegundos);
+                const tooltipPre = formatarDuracao(preSegundos);
                 const tooltipRea = reaExcedePre
                     ? `${formatarDuracao(bloco.reaSegundos)} — excede a estimativa (${formatarDuracao(preSegundos)})`
                     : formatarDuracao(bloco.reaSegundos);

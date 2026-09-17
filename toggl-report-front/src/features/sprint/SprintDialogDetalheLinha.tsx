@@ -5,19 +5,26 @@ import type { LinhaTarefaSprint } from '../../api/tipos';
 import { BadgeSigla } from '../../components/BadgeSigla';
 import { BadgeTexto, EtiquetaFixa } from './SprintBadges';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlineOutlined';
-import { GRUPOS, corDaSituacao, formatarCodigo, infoPrioridade } from './calculos';
+import { GRUPOS, corDaSituacao, formatarCodigo, infoPrioridade, truncarDescricao } from './calculos';
 
 import {
     Box,
     Link,
+    Table,
     Stack,
     Button,
     Dialog,
+    Tooltip,
     Divider,
+    TableRow,
+    TableBody,
+    TableHead,
+    TableCell,
     Typography,
     DialogTitle,
     DialogContent,
     DialogActions,
+    TableContainer,
 } from '@mui/material';
 
 const COR_PENDENTE = CORES.corPendente;
@@ -60,12 +67,14 @@ export function SprintDialogDetalheLinha({
                         sx={codigoDuplicado ? { color: COR_PENDENTE, fontWeight: 700 } : undefined}>
                         {codigo}
                     </Typography>
-                    <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={codigoDuplicado ? { color: COR_PENDENTE, fontWeight: 700 } : undefined}>
-                        {linha.descricao || '(sem descrição)'}
-                    </Typography>
+                    <Tooltip title={linha.descricao || '(sem descrição)'}>
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={codigoDuplicado ? { color: COR_PENDENTE, fontWeight: 700 } : undefined}>
+                            {truncarDescricao(linha.descricao || '(sem descrição)')}
+                        </Typography>
+                    </Tooltip>
                 </Stack>
             </DialogTitle>
             <DialogContent>
@@ -107,107 +116,124 @@ export function SprintDialogDetalheLinha({
 
                     <Divider />
 
-                    <Stack spacing={2}>
-                        {GRUPOS.map((grupo) => {
-                            const bloco = linha[grupo.bloco];
-                            const temColaborador = bloco.nomeExibicao !== null;
-                            const preSegundos = Math.round(bloco.preHoras * 3600);
-                            const reaExcedePre = preSegundos > 0 && bloco.reaSegundos > preSegundos;
+                    <TableContainer>
+                        <Table size="small">
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell />
+                                    {GRUPOS.map((grupo) => (
+                                        <TableCell key={grupo.rotulo} align="center">
+                                            {grupo.nomeLongo}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                <TableRow>
+                                    <TableCell sx={{ color: 'text.secondary' }}>Colaborador</TableCell>
+                                    {GRUPOS.map((grupo) => {
+                                        const bloco = linha[grupo.bloco];
+                                        const temColaborador = bloco.nomeExibicao !== null;
+                                        return (
+                                            <TableCell key={grupo.rotulo} align="center">
+                                                {temColaborador ? (
+                                                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'center' }}>
+                                                        <BadgeSigla
+                                                            sigla={bloco.sigla ?? ''}
+                                                            cor={bloco.cor ?? undefined}
+                                                            nome={bloco.nomeExibicao ?? undefined} />
+                                                        <Typography variant="body2">{bloco.nomeExibicao}</Typography>
+                                                    </Stack>
+                                                ) : (
+                                                    <EtiquetaFixa texto="–" cor="text.primary" />
+                                                )}
+                                            </TableCell>
+                                        );
+                                    })}
+                                </TableRow>
 
-                            return (
-                                <Stack key={grupo.rotulo} spacing={1}>
-                                    <Typography variant="subtitle2">{grupo.nomeLongo}</Typography>
-                                    <Stack direction="row" spacing={3} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
-                                        <Stack spacing={0.25}>
-                                            <Typography variant="caption" color="text.secondary">
-                                                Colaborador
-                                            </Typography>
-                                            {temColaborador ? (
-                                                <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                                                    <BadgeSigla
-                                                        sigla={bloco.sigla ?? ''}
-                                                        cor={bloco.cor ?? undefined}
-                                                        nome={bloco.nomeExibicao ?? undefined} />
-                                                    <Typography variant="body2">{bloco.nomeExibicao}</Typography>
-                                                </Stack>
-                                            ) : (
-                                                <EtiquetaFixa texto="–" cor="text.primary" />
-                                            )}
-                                        </Stack>
-
-                                        <Stack spacing={0.25}>
-                                            <Typography variant="caption" color="text.secondary">
-                                                PRE (previsto)
-                                            </Typography>
-                                            {bloco.preHoras > 0 ? (
-                                                <Box>
+                                <TableRow>
+                                    <TableCell sx={{ color: 'text.secondary' }}>PRE (previsto)</TableCell>
+                                    {GRUPOS.map((grupo) => {
+                                        const bloco = linha[grupo.bloco];
+                                        const preSegundos = Math.round(bloco.preHoras * 3600);
+                                        return (
+                                            <TableCell key={grupo.rotulo} align="center">
+                                                {bloco.preHoras > 0 ? (
                                                     <Typography
                                                         variant="body2"
                                                         sx={{ color: 'primary.main', fontWeight: 600 }}>
                                                         {formatarDuracao(preSegundos)}
                                                     </Typography>
-                                                    {grupo.bloco === 'dev' && bloco.estimativaOriginalHoras !== null ? (
-                                                        <Typography variant="caption" color="text.secondary">
-                                                            Estimativa original:{' '}
-                                                            {formatarDuracao(Math.round(bloco.estimativaOriginalHoras * 3600))}
-                                                        </Typography>
-                                                    ) : undefined}
-                                                </Box>
-                                            ) : (
-                                                <EtiquetaFixa texto="–" cor="text.primary" />
-                                            )}
-                                        </Stack>
-
-                                        <Stack spacing={0.25}>
-                                            <Typography variant="caption" color="text.secondary">
-                                                REA (realizado)
-                                            </Typography>
-                                            {bloco.reaSegundos > 0 ? (
-                                                <Box>
-                                                    <Typography
-                                                        variant="body2"
-                                                        sx={{
-                                                            color: reaExcedePre ? COR_PENDENTE : 'primary.main',
-                                                            fontWeight: 600,
-                                                        }}>
-                                                        {formatarDuracao(bloco.reaSegundos)}
-                                                    </Typography>
-                                                    {reaExcedePre ? (
-                                                        <Typography variant="caption" sx={{ color: COR_PENDENTE }}>
-                                                            Excede a estimativa ({formatarDuracao(preSegundos)})
-                                                        </Typography>
-                                                    ) : undefined}
-                                                </Box>
-                                            ) : (
-                                                <EtiquetaFixa texto="–" cor="text.primary" />
-                                            )}
-                                        </Stack>
-
-                                        <Stack spacing={0.25}>
-                                            <Typography variant="caption" color="text.secondary">
-                                                Situação
-                                            </Typography>
-                                            {temColaborador ? (
-                                                linha.agrupada ? (
-                                                    <EtiquetaFixa texto="Tag" cor={corTag} />
-                                                ) : linha.grupoResponsavelStatus ? (
-                                                    <EtiquetaFixa
-                                                        texto={grupo.bloco === linha.grupoResponsavelStatus ? 'Pendente' : 'Concluído'}
-                                                        cor={grupo.bloco === linha.grupoResponsavelStatus ? COR_PENDENTE : COR_CONCLUIDO} />
-                                                ) : linha.situacaoSemGrupoResponsavel ? (
-                                                    <EtiquetaFixa texto="Concluído" cor={COR_CONCLUIDO} />
                                                 ) : (
-                                                    <EtiquetaFixa texto="Pendente" cor={COR_PENDENTE} />
-                                                )
-                                            ) : (
-                                                <EtiquetaFixa texto="–" cor="text.primary" />
-                                            )}
-                                        </Stack>
-                                    </Stack>
-                                </Stack>
-                            );
-                        })}
-                    </Stack>
+                                                    <EtiquetaFixa texto="–" cor="text.primary" />
+                                                )}
+                                            </TableCell>
+                                        );
+                                    })}
+                                </TableRow>
+
+                                <TableRow>
+                                    <TableCell sx={{ color: 'text.secondary' }}>REA (realizado)</TableCell>
+                                    {GRUPOS.map((grupo) => {
+                                        const bloco = linha[grupo.bloco];
+                                        const preSegundos = Math.round(bloco.preHoras * 3600);
+                                        const reaExcedePre = preSegundos > 0 && bloco.reaSegundos > preSegundos;
+                                        return (
+                                            <TableCell key={grupo.rotulo} align="center">
+                                                {bloco.reaSegundos > 0 ? (
+                                                    <Box>
+                                                        <Typography
+                                                            variant="body2"
+                                                            sx={{
+                                                                color: reaExcedePre ? COR_PENDENTE : 'primary.main',
+                                                                fontWeight: 600,
+                                                            }}>
+                                                            {formatarDuracao(bloco.reaSegundos)}
+                                                        </Typography>
+                                                        {reaExcedePre ? (
+                                                            <Typography variant="caption" sx={{ color: COR_PENDENTE }}>
+                                                                Excede a estimativa ({formatarDuracao(preSegundos)})
+                                                            </Typography>
+                                                        ) : undefined}
+                                                    </Box>
+                                                ) : (
+                                                    <EtiquetaFixa texto="–" cor="text.primary" />
+                                                )}
+                                            </TableCell>
+                                        );
+                                    })}
+                                </TableRow>
+
+                                <TableRow>
+                                    <TableCell sx={{ color: 'text.secondary' }}>Situação</TableCell>
+                                    {GRUPOS.map((grupo) => {
+                                        const bloco = linha[grupo.bloco];
+                                        const temColaborador = bloco.nomeExibicao !== null;
+                                        return (
+                                            <TableCell key={grupo.rotulo} align="center">
+                                                {temColaborador ? (
+                                                    linha.agrupada ? (
+                                                        <EtiquetaFixa texto="Tag" cor={corTag} />
+                                                    ) : linha.grupoResponsavelStatus ? (
+                                                        <EtiquetaFixa
+                                                            texto={grupo.bloco === linha.grupoResponsavelStatus ? 'Pendente' : 'Concluído'}
+                                                            cor={grupo.bloco === linha.grupoResponsavelStatus ? COR_PENDENTE : COR_CONCLUIDO} />
+                                                    ) : linha.situacaoSemGrupoResponsavel ? (
+                                                        <EtiquetaFixa texto="Concluído" cor={COR_CONCLUIDO} />
+                                                    ) : (
+                                                        <EtiquetaFixa texto="Pendente" cor={COR_PENDENTE} />
+                                                    )
+                                                ) : (
+                                                    <EtiquetaFixa texto="–" cor="text.primary" />
+                                                )}
+                                            </TableCell>
+                                        );
+                                    })}
+                                </TableRow>
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
                 </Stack>
             </DialogContent>
             <DialogActions>

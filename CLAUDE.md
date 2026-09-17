@@ -180,6 +180,20 @@ ct         = td * nº de colaboradores selecionados   # capacidade total
 ```
 Não é "70% do total" nem "70% de 70%" — só a fórmula acima é válida.
 
+**Totalizadores Pendentes/Concluídas** (`CabecalhoSprint`/`LinhaColaboradorSprint`,
+desde 2026-09-17): configuráveis via duas listas globais de status do Jira —
+`ConfiguracaoStatusFinalSprint.StatusConcluido`/`StatusIgnorado` (seção
+`[SprintStatusFinal]` de `ConfiguracoesGerais.ini`, editadas em Configurações →
+Jira: status e cores, junto das listas DEV/REV/QA — **mutuamente exclusivas**: um
+status marcado numa lista some das opções da outra na UI, e o backend rejeita com
+400 se as duas chegarem com um status em comum). **Concluídas** = descrições
+distintas (nunca linha de tag) cujo `Situacao` está em `StatusConcluido`;
+**Pendentes** = descrições distintas cujo `Situacao` não está em `StatusConcluido`
+nem em `StatusIgnorado` — uma descrição em `StatusIgnorado` não conta em nenhum dos
+dois. Sem nenhuma das duas listas preenchida (padrão), o comportamento é idêntico ao
+anterior: `Concluídas = 0`, `Pendentes` = todas as descrições distintas. Mesmo
+cálculo por colaborador, restrito às descrições em que ele aparece.
+
 **Grid de tarefas**: uma linha por `(Chave, Agrupada)`, `Chave`/`Agrupada` vindos de
 `ChaveAgrupamento` (mesma regra descricao/tag/ambos do Gant, usando
 `registro.Tags[0]`). Linha de descrição: `Codigo`/`Descricao` separados via regex
@@ -202,10 +216,13 @@ recebe tag-agg).
   em "Nenhuma" (cinza) e PRE cai em "–" em cada grupo sem campo configurado; nunca
   editáveis nem persistidos pelo app.
 - **Duplo clique numa linha da grid** abre `SprintDialogDetalheLinha` — mesmas
-  cores/badges da grid, valores por extenso em vez de abreviados (não é um padrão
-  novo de modal, só reaproveita `Dialog`/`DialogTitle`/`DialogContent`/
-  `DialogActions` do MUI, como o `SprintDialogInfo`). Clique no checkbox ou no link
-  do código continua com `stopPropagation`, não abre o modal.
+  cores/badges da grid, valores por extenso em vez de abreviados, grupos DEV/REV/QA
+  em **colunas de uma `Table`** (atributo é linha, grupo é coluna — desde
+  2026-09-17, antes era uma `Stack` por grupo). Não é um padrão novo de modal, só
+  reaproveita `Dialog`/`DialogTitle`/`DialogContent`/`DialogActions` do MUI, como o
+  `SprintDialogInfo`. Clique no checkbox ou no link do código continua com
+  `stopPropagation`, não abre o modal. Descrição truncada em 30 caracteres + "…"
+  (grid e modal, `truncarDescricao`), tooltip sempre com o texto completo.
 - Frontend detecta **duplicidade visual** (`calcularColisaoPosicao`, cliente): quando
   a mesclagem abre >1 linha de descrição para a mesma `(codigo, descricao)` por dois
   colaboradores disputarem a mesma posição, Código+Descrição ficam em vermelho —
@@ -230,9 +247,10 @@ do Jira próprio por grupo — `CampoEstimativaDesenvolvimentoId`, `CampoEstimat
 `CampoEstimativaTestesId` (`ConfiguracaoJira`, cada um configurável independentemente
 em Configurações → Jira: conexão, mesmo mecanismo de descoberta/seleção dos campos
 customizados já usado por `CampoRevisadoPorId`) — sem o campo daquele grupo
-configurado, `PreHoras` fica 0. Só o bloco **DEV** recebe também
-`EstimativaOriginalHoras` (campo nativo `timeoriginalestimate`, da issue inteira, não
-por grupo). **`GET /rest/api/3/search` foi descontinuado pelo Jira** (410 Gone) —
+configurado, `PreHoras` fica 0. A "Estimativa original" (campo nativo
+`timeoriginalestimate`) foi **removida por completo** (backend e frontend) desde
+2026-09-17 — não tinha uso fora desse tooltip, não recriar sem pedido explícito.
+**`GET /rest/api/3/search` foi descontinuado pelo Jira** (410 Gone) —
 usar sempre `POST /rest/api/3/search/jql`. `IssueJira.UrlIssue` (`<dominio>/browse/<chave>`) vira link no Código da grid; a cor
 de duplicidade é aplicada **direto no link** (`sx` do próprio `<a>`), nunca por
 herança de um `TableCell` ancestral — um elemento com `color` próprio não herda do
@@ -391,6 +409,7 @@ global, Swagger em `/swagger` (título "Toggl Report API"). Sobe em
 | `POST` | `/api/sprints/{chave}/reabrir` | Marca o sprint como aberto de novo |
 | `GET/PUT` | `/api/sprint/categorias` | mapeamento DEV/REV/QA + agrupamento + tags (fonte usada pela aba Configurações) |
 | `GET/PUT` | `/api/sprint/responsabilidade` | mapeamento status do Jira → DEV/REV/QA |
+| `GET/PUT` | `/api/sprint/status-final` | status do Jira que contam como Concluído/Ignorado nos totalizadores; `PUT` 400 se um status estiver nas duas listas |
 | `POST` | `/api/sprint/consultas` | cache-first via `ServicoConsulta`; `chaveSprint` (obrigatório) isola a seção gravada em `SprintData.ini`/`JiraSprintData.ini`; `origem` (`nenhum`\|`toggl`\|`jira`\|`ambos`, default `nenhum`) escolhe o que forçar (não a fonte); sprint fechado ignora `origem` e devolve 409 se não houver cache batendo |
 | `GET` | `/api/sprint?chaveSprint=` | 409 sem cache p/ o período do sprint |
 | `GET/PUT` | `/api/jira/configuracao` | URL/e-mail/campo de estimativa; token sempre mascarado na resposta |

@@ -12,6 +12,7 @@ import { useMapeamentoJiraToggl } from './useMapeamentoJiraToggl';
 import { useCategoriasSprint } from '../sprint/useCategoriasSprint';
 import { useUsuariosToggl } from '../usuarios-toggl/useUsuariosToggl';
 import { useResponsabilidadeSprint } from '../sprint/useResponsabilidadeSprint';
+import { useStatusFinalSprint } from '../sprint/useStatusFinalSprint';
 import { togglObrigatorioCompleto, configuracaoObrigatoriaCompleta } from './completude';
 import type { Agrupamento, CategoriasSprint, UsuarioTogglResumo, EntradaMapeamentoJiraToggl } from '../../api/tipos';
 
@@ -28,6 +29,13 @@ export function ConfiguracoesView({ onAlterado }: ConfiguracoesViewProps): React
         carregando: carregandoResponsabilidade,
         salvando: salvandoResponsabilidade,
     } = useResponsabilidadeSprint();
+
+    const {
+        carregar: carregarStatusFinal,
+        salvar: salvarStatusFinal,
+        carregando: carregandoStatusFinal,
+        salvando: salvandoStatusFinal,
+    } = useStatusFinalSprint();
 
     const { salvar: salvarConfiguracao, salvando: salvandoConfiguracao } = useConfiguracao();
     const { salvar: salvarParametrosGant, salvando: salvandoParametrosGant } = useParametrosGant();
@@ -48,6 +56,8 @@ export function ConfiguracoesView({ onAlterado }: ConfiguracoesViewProps): React
     const [statusDev, setStatusDev] = useState<string[]>([]);
     const [statusRev, setStatusRev] = useState<string[]>([]);
     const [statusQa, setStatusQa] = useState<string[]>([]);
+    const [statusConcluido, setStatusConcluido] = useState<string[]>([]);
+    const [statusIgnorado, setStatusIgnorado] = useState<string[]>([]);
 
     const [usuarios, setUsuarios] = useState<UsuarioTogglResumo[]>([]);
     const [mapeamentoJira, setMapeamentoJira] = useState<Record<string, EntradaMapeamentoJiraToggl>>({});
@@ -79,6 +89,16 @@ export function ConfiguracoesView({ onAlterado }: ConfiguracoesViewProps): React
             })
             .catch((erro: unknown) => {
                 if (!cancelado) notificarErro(erro, 'Não foi possível carregar o status por responsável');
+            });
+
+        carregarStatusFinal()
+            .then((dados) => {
+                if (cancelado) return;
+                setStatusConcluido(dados.statusConcluido);
+                setStatusIgnorado(dados.statusIgnorado);
+            })
+            .catch((erro: unknown) => {
+                if (!cancelado) notificarErro(erro, 'Não foi possível carregar os status finais');
             });
 
         return () => {
@@ -119,7 +139,7 @@ export function ConfiguracoesView({ onAlterado }: ConfiguracoesViewProps): React
         };
     }, [modo]);
 
-    const carregandoTudo = carregando || carregandoResponsabilidade;
+    const carregandoTudo = carregando || carregandoResponsabilidade || carregandoStatusFinal;
     const existeUsuarioAdministrador = usuarios.some((usuario) => usuario.administrador);
     const togglCompleto = togglObrigatorioCompleto({ agrupamento, tagsDetalhadas, dev, rev, qa });
     const completa = configuracaoObrigatoriaCompleta({ agrupamento, tagsDetalhadas, dev, rev, qa, statusDev, statusRev, statusQa });
@@ -171,6 +191,10 @@ export function ConfiguracoesView({ onAlterado }: ConfiguracoesViewProps): React
                     setStatusRev={setStatusRev}
                     statusQa={statusQa}
                     setStatusQa={setStatusQa}
+                    statusConcluido={statusConcluido}
+                    setStatusConcluido={setStatusConcluido}
+                    statusIgnorado={statusIgnorado}
+                    setStatusIgnorado={setStatusIgnorado}
                     existeUsuarioAdministrador={existeUsuarioAdministrador}
                     onUsuariosAlterados={setUsuarios}
                     jiraConexaoValida={jiraConexaoValida}
@@ -182,10 +206,12 @@ export function ConfiguracoesView({ onAlterado }: ConfiguracoesViewProps): React
                     salvandoConfiguracao={salvandoConfiguracao}
                     salvandoParametrosGant={salvandoParametrosGant}
                     salvandoResponsabilidade={salvandoResponsabilidade}
+                    salvandoStatusFinal={salvandoStatusFinal}
                     salvarCategorias={salvar}
                     salvarConfiguracao={salvarConfiguracao}
                     salvarParametrosGant={salvarParametrosGant}
                     salvarResponsabilidade={salvarResponsabilidade}
+                    salvarStatusFinal={salvarStatusFinal}
                     aoConcluir={() => setModo('resumo')}
                     aoVoltarResumo={() => setModo('resumo')} />
             )}

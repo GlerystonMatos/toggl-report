@@ -132,6 +132,7 @@ app.MapGantEndpoints(caminhoConfiguracao, caminhoUsuarios, caminhoParametrosGant
 app.MapSprintsEndpoints(caminhoSprints);
 app.MapSprintCategoriasEndpoints(caminhoConfiguracoesGerais);
 app.MapSprintResponsabilidadeEndpoints(caminhoConfiguracoesGerais);
+app.MapSprintStatusFinalEndpoints(caminhoConfiguracoesGerais);
 app.MapSprintConsultasEndpoints(caminhoConfiguracao, caminhoUsuarios, caminhoSprints, caminhoCacheSprint, caminhoConfiguracoesGerais, caminhoJiraSprintData);
 app.MapSprintAcompanhamentoEndpoints(caminhoConfiguracao, caminhoUsuarios, caminhoSprints, caminhoConfiguracoesGerais, caminhoCacheSprint, caminhoJiraSprintData);
 app.MapJiraEndpoints(caminhoConfiguracoesGerais, caminhoCacheListasJira, caminhoCoresJira);

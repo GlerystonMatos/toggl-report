@@ -40,7 +40,8 @@ public static class ServicoSprint
         ConfiguracaoCategoriasSprint categorias,
         Dictionary<string, IssueJira>? issuesPorCodigo = null,
         ConfiguracaoResponsabilidadeSprint? responsabilidade = null,
-        ConfiguracaoMapeamentoJiraToggl? mapeamento = null)
+        ConfiguracaoMapeamentoJiraToggl? mapeamento = null,
+        ConfiguracaoStatusFinalSprint? statusFinal = null)
     {
         int diasUteis = ContarDiasUteis(sprint.DataInicio, sprint.DataFim);
 
@@ -139,6 +140,8 @@ public static class ServicoSprint
 
         List<LinhaTarefaSprint> tarefas = new();
 
+        Dictionary<string, string?> situacaoPorChave = new(StringComparer.OrdinalIgnoreCase);
+
         foreach (KeyValuePair<(string Chave, bool Agrupada), List<(string NomeExibicao, long[] Segundos)>> grupo in porGrupo)
         {
             (string chave, bool agrupada) = grupo.Key;
@@ -197,6 +200,9 @@ public static class ServicoSprint
                 : null;
             bool jiraIndisponivel = tinhaCodigoParaBuscar && issueJira is null;
 
+            if (!agrupada)
+                situacaoPorChave[chave] = issueJira?.Situacao;
+
             AplicarFallbackJira(linhasEmConstrucao, agrupada, issueJira, mapeamento, usuariosSelecionados);
 
             (string? grupoResponsavelStatus, bool situacaoSemGrupoResponsavel) = DeterminarGrupoResponsavel(issueJira?.Situacao, responsabilidade);
@@ -207,7 +213,7 @@ public static class ServicoSprint
                     codigo,
                     descricao,
                     agrupada,
-                    CriarBloco(linha[0], issueJira?.EstimativaDesenvolvimentoHoras ?? 0m, issueJira?.EstimativaOriginalHoras),
+                    CriarBloco(linha[0], issueJira?.EstimativaDesenvolvimentoHoras ?? 0m),
                     CriarBloco(linha[1], issueJira?.EstimativaRevisaoHoras ?? 0m),
                     CriarBloco(linha[2], issueJira?.EstimativaTestesHoras ?? 0m),
                     issueJira?.Prioridade,
@@ -241,11 +247,7 @@ public static class ServicoSprint
             .ThenBy(t => t.Descricao, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        int descricoesDistintas = segundosPorChave.Keys
-            .Where(k => !k.Agrupada)
-            .Select(k => k.Chave)
-            .Distinct()
-            .Count();
+        (int pendentesGeral, int concluidasGeral) = ContarPendentesEConcluidas(situacaoPorChave.Values, statusFinal);
 
         CabecalhoSprint cabecalho = new(
             sprint.Nome,
@@ -256,8 +258,8 @@ public static class ServicoSprint
             sprint.DataFim,
             ct,
             tdPorColaborador,
-            descricoesDistintas,
-            0);
+            pendentesGeral,
+            concluidasGeral);
 
         List<LinhaColaboradorSprint> colaboradores = new();
 
@@ -265,11 +267,14 @@ public static class ServicoSprint
         {
             segundosRealizadosPorUsuario.TryGetValue(usuario.NomeExibicao, out long segundosRealizados);
 
-            int pendentesColaborador = segundosPorChave.Keys
+            List<string?> situacoesColaborador = segundosPorChave.Keys
                 .Where(k => !k.Agrupada && k.NomeExibicao == usuario.NomeExibicao)
                 .Select(k => k.Chave)
                 .Distinct()
-                .Count();
+                .Select(chaveColaborador => situacaoPorChave.GetValueOrDefault(chaveColaborador))
+                .ToList();
+
+            (int pendentesColaborador, int concluidasColaborador) = ContarPendentesEConcluidas(situacoesColaborador, statusFinal);
 
             colaboradores.Add(new LinhaColaboradorSprint(
                 usuario.NomeExibicao,
@@ -278,7 +283,7 @@ public static class ServicoSprint
                 tdPorColaborador,
                 segundosRealizados,
                 pendentesColaborador,
-                0));
+                concluidasColaborador));
         }
 
         return new ResultadoSprint(cabecalho, tarefasOrdenadas, colaboradores);
@@ -391,6 +396,28 @@ public static class ServicoSprint
         linhasEmConstrucao[0][categoria] = new SlotColaborador(nomeJira, entrada.Sigla, entrada.Cor, 0);
     }
 
-    private static BlocoCategoriaSprint CriarBloco(SlotColaborador slot, decimal preHoras = 0m, decimal? estimativaOriginalHoras = null) =>
-        new(preHoras, slot.Segundos, slot.NomeExibicao, slot.Sigla, slot.Cor, estimativaOriginalHoras);
+    private static BlocoCategoriaSprint CriarBloco(SlotColaborador slot, decimal preHoras = 0m) =>
+        new(preHoras, slot.Segundos, slot.NomeExibicao, slot.Sigla, slot.Cor);
+
+    private static (int Pendentes, int Concluidas) ContarPendentesEConcluidas(IEnumerable<string?> situacoes, ConfiguracaoStatusFinalSprint? statusFinal)
+    {
+        int pendentes = 0;
+        int concluidas = 0;
+
+        foreach (string? situacao in situacoes)
+        {
+            bool concluida = EstaNaLista(situacao, statusFinal?.StatusConcluido);
+            bool ignorada = !concluida && EstaNaLista(situacao, statusFinal?.StatusIgnorado);
+
+            if (concluida)
+                concluidas++;
+            else if (!ignorada)
+                pendentes++;
+        }
+
+        return (pendentes, concluidas);
+    }
+
+    private static bool EstaNaLista(string? situacao, List<string>? lista) =>
+        situacao is not null && lista is not null && lista.Contains(situacao, StringComparer.OrdinalIgnoreCase);
 }

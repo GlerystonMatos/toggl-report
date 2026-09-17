@@ -41,8 +41,9 @@ public static class SprintAcompanhamentoEndpoints
 
             ConfiguracaoResponsabilidadeSprint responsabilidade = CarregadorConfiguracaoResponsabilidadeSprintIni.Carregar(caminhoConfiguracoesGerais);
             ConfiguracaoMapeamentoJiraToggl mapeamento = CarregadorConfiguracaoMapeamentoJiraTogglIni.Carregar(caminhoConfiguracoesGerais);
+            ConfiguracaoStatusFinalSprint statusFinal = CarregadorConfiguracaoStatusFinalSprintIni.Carregar(caminhoConfiguracoesGerais);
 
-            ResultadoSprint resultado = ServicoSprint.Montar(sprint, usuariosSelecionados, consulta, categorias, issuesPorCodigo, responsabilidade, mapeamento);
+            ResultadoSprint resultado = ServicoSprint.Montar(sprint, usuariosSelecionados, consulta, categorias, issuesPorCodigo, responsabilidade, mapeamento, statusFinal);
             return Results.Ok(resultado);
         })
         .WithSummary("Devolve o acompanhamento do sprint (cabeçalho de capacidade + tarefas por descrição) a partir do cache do sprint");

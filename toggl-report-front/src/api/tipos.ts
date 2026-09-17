@@ -295,7 +295,6 @@ export interface BlocoCategoriaSprint {
     nomeExibicao: string | null;
     sigla: string | null;
     cor: string | null;
-    estimativaOriginalHoras: number | null;
 }
 
 export interface LinhaTarefaSprint {
@@ -324,6 +323,16 @@ export interface AtualizarResponsabilidadeSprintRequest {
     statusDev: string[];
     statusRev: string[];
     statusQa: string[];
+}
+
+export interface StatusFinalSprint {
+    statusConcluido: string[];
+    statusIgnorado: string[];
+}
+
+export interface AtualizarStatusFinalSprintRequest {
+    statusConcluido: string[];
+    statusIgnorado: string[];
 }
 
 export interface CabecalhoSprint {

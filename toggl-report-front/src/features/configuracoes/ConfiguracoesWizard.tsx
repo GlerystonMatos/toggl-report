@@ -20,12 +20,14 @@ import type {
     Agrupamento,
     ParametrosGant,
     CategoriasSprint,
+    StatusFinalSprint,
     UsuarioTogglResumo,
     ResponsabilidadeSprint,
     ParametrosConfiguracao,
     AtualizarParametrosRequest,
     AtualizarParametrosGantRequest,
     AtualizarCategoriasSprintRequest,
+    AtualizarStatusFinalSprintRequest,
     AtualizarResponsabilidadeSprintRequest,
 } from '../../api/tipos';
 
@@ -63,6 +65,10 @@ interface ConfiguracoesWizardProps {
     setStatusRev: (valor: string[]) => void;
     statusQa: string[];
     setStatusQa: (valor: string[]) => void;
+    statusConcluido: string[];
+    setStatusConcluido: (valor: string[]) => void;
+    statusIgnorado: string[];
+    setStatusIgnorado: (valor: string[]) => void;
 
     existeUsuarioAdministrador: boolean;
     onUsuariosAlterados: (usuarios: UsuarioTogglResumo[]) => void;
@@ -77,11 +83,13 @@ interface ConfiguracoesWizardProps {
     salvandoConfiguracao: boolean;
     salvandoParametrosGant: boolean;
     salvandoResponsabilidade: boolean;
+    salvandoStatusFinal: boolean;
 
     salvarCategorias: (dados: AtualizarCategoriasSprintRequest) => Promise<CategoriasSprint>;
     salvarConfiguracao: (dados: AtualizarParametrosRequest) => Promise<ParametrosConfiguracao>;
     salvarParametrosGant: (dados: AtualizarParametrosGantRequest) => Promise<ParametrosGant>;
     salvarResponsabilidade: (dados: AtualizarResponsabilidadeSprintRequest) => Promise<ResponsabilidadeSprint>;
+    salvarStatusFinal: (dados: AtualizarStatusFinalSprintRequest) => Promise<StatusFinalSprint>;
 
     aoConcluir: () => void;
     aoVoltarResumo: () => void;
@@ -106,6 +114,10 @@ export function ConfiguracoesWizard({
     setStatusRev,
     statusQa,
     setStatusQa,
+    statusConcluido,
+    setStatusConcluido,
+    statusIgnorado,
+    setStatusIgnorado,
     existeUsuarioAdministrador,
     onUsuariosAlterados,
     jiraConexaoValida,
@@ -117,10 +129,12 @@ export function ConfiguracoesWizard({
     salvandoConfiguracao,
     salvandoParametrosGant,
     salvandoResponsabilidade,
+    salvandoStatusFinal,
     salvarCategorias,
     salvarConfiguracao,
     salvarParametrosGant,
     salvarResponsabilidade,
+    salvarStatusFinal,
     aoConcluir,
     aoVoltarResumo,
 }: ConfiguracoesWizardProps): ReactNode {
@@ -187,14 +201,25 @@ export function ConfiguracoesWizard({
         }
     }
 
+    async function salvarStatusFinalConfigurado(): Promise<boolean> {
+        try {
+            await salvarStatusFinal({ statusConcluido, statusIgnorado });
+            return true;
+        } catch (erro) {
+            notificarErro(erro, 'Não foi possível salvar os status finais');
+            return false;
+        }
+    }
+
     async function salvarStatusECores(): Promise<boolean> {
         setSalvandoCores(true);
         try {
-            const [statusOk, coresOk] = await Promise.all([
+            const [statusOk, statusFinalOk, coresOk] = await Promise.all([
                 salvarStatusResponsaveis(),
+                salvarStatusFinalConfigurado(),
                 refPainelCores.current?.salvar() ?? Promise.resolve(true),
             ]);
-            const sucesso = statusOk && coresOk;
+            const sucesso = statusOk && statusFinalOk && coresOk;
             if (sucesso) notificarSucesso('Configurações salvas.');
             return sucesso;
         } finally {
@@ -252,7 +277,7 @@ export function ConfiguracoesWizard({
             : etapaAtiva === 2
                 ? avancandoJira
                 : etapaAtiva === 3
-                    ? salvandoResponsabilidade || salvandoCores
+                    ? salvandoResponsabilidade || salvandoStatusFinal || salvandoCores
                     : etapaAtiva === 4
                         ? salvandoMapeamento
                         : false;
@@ -469,6 +494,50 @@ export function ConfiguracoesWizard({
                                             obterOpcoes={async (forcar) => {
                                                 const resposta = await listarStatusJira(forcar);
                                                 return { itens: resposta.nomes, veioDoCache: resposta.veioDoCache, atualizadoEm: resposta.atualizadoEm };
+                                            }} />
+                                    </Box>
+                                </Stack>
+                                <Divider />
+
+                                <Stack spacing={0.5}>
+                                    <Typography variant="subtitle1">Status finais (para os totalizadores do Sprint)</Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Define quais status do Jira contam como "Concluído" e quais são ignorados (não
+                                        contam nem como pendente, nem como concluído) nos totalizadores do cabeçalho do
+                                        Sprint. Um status marcado numa lista some das opções da outra até ser desmarcado.
+                                        Opcional — sem configuração, o comportamento atual é preservado.
+                                    </Typography>
+                                </Stack>
+
+                                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <SelectListaCacheada
+                                            value={statusConcluido}
+                                            onChange={setStatusConcluido}
+                                            disabled={carregandoTudo}
+                                            label="Status Concluído"
+                                            obterOpcoes={async (forcar) => {
+                                                const resposta = await listarStatusJira(forcar);
+                                                return {
+                                                    itens: resposta.nomes.filter((nome) => !statusIgnorado.includes(nome)),
+                                                    veioDoCache: resposta.veioDoCache,
+                                                    atualizadoEm: resposta.atualizadoEm,
+                                                };
+                                            }} />
+                                    </Box>
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <SelectListaCacheada
+                                            value={statusIgnorado}
+                                            onChange={setStatusIgnorado}
+                                            disabled={carregandoTudo}
+                                            label="Status Ignorado"
+                                            obterOpcoes={async (forcar) => {
+                                                const resposta = await listarStatusJira(forcar);
+                                                return {
+                                                    itens: resposta.nomes.filter((nome) => !statusConcluido.includes(nome)),
+                                                    veioDoCache: resposta.veioDoCache,
+                                                    atualizadoEm: resposta.atualizadoEm,
+                                                };
                                             }} />
                                     </Box>
                                 </Stack>

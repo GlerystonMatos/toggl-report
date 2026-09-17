@@ -90,6 +90,10 @@ export function ordemPrioridade(prioridade: string | null): number {
     return indice === -1 ? ORDEM_PRIORIDADE.length : indice;
 }
 
+export function truncarDescricao(texto: string, limite = 30): string {
+    return texto.length > limite ? `${texto.slice(0, limite)}…` : texto;
+}
+
 export const GRUPOS: { rotulo: string; nomeLongo: string; bloco: 'dev' | 'rev' | 'qa' }[] = [
     { rotulo: 'DEV', nomeLongo: 'Desenvolvimento', bloco: 'dev' },
     { rotulo: 'REV', nomeLongo: 'Revisão', bloco: 'rev' },

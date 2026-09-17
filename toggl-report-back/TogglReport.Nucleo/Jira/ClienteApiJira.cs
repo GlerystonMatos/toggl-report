@@ -191,7 +191,7 @@ public class ClienteApiJira
         if (chaves.Count == 0)
             return ResultadoApiJira<List<IssueJira>>.Ok(new List<IssueJira>());
 
-        List<string> camposDesejados = new() { "priority", "status", "timeoriginalestimate", "assignee" };
+        List<string> camposDesejados = new() { "priority", "status", "assignee" };
         if (!string.IsNullOrWhiteSpace(campoEstimativaDesenvolvimentoId))
             camposDesejados.Add(campoEstimativaDesenvolvimentoId);
         if (!string.IsNullOrWhiteSpace(campoRevisadoPorId))
@@ -242,7 +242,6 @@ public class ClienteApiJira
                     issue.Key,
                     issue.Fields.Priority?.Name,
                     issue.Fields.Status?.Name,
-                    issue.Fields.Timeoriginalestimate.HasValue ? issue.Fields.Timeoriginalestimate.Value / 3600m : null,
                     ExtrairEstimativaEsforco(issue.Fields.CamposExtras, campoEstimativaDesenvolvimentoId),
                     MontarUrlIssue(issue.Key),
                     issue.Fields.Status?.StatusCategory?.Key,

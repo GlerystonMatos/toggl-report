@@ -112,11 +112,11 @@ public static class JiraEndpoints
                 return Results.BadRequest(resultado.MensagemErro);
 
             List<IssueJiraDto> issues = resultado.Dados!
-                .Select(issue => new IssueJiraDto(issue.Chave, issue.Prioridade, issue.Situacao, issue.EstimativaOriginalHoras, issue.EstimativaDesenvolvimentoHoras, issue.UrlIssue, issue.SituacaoCategoria, issue.Responsavel, issue.RevisadoPor, issue.EstimativaRevisaoHoras, issue.EstimativaTestesHoras))
+                .Select(issue => new IssueJiraDto(issue.Chave, issue.Prioridade, issue.Situacao, issue.EstimativaDesenvolvimentoHoras, issue.UrlIssue, issue.SituacaoCategoria, issue.Responsavel, issue.RevisadoPor, issue.EstimativaRevisaoHoras, issue.EstimativaTestesHoras))
                 .ToList();
             return Results.Ok(issues);
         })
-        .WithSummary("Busca em lote (JQL key in (...)) prioridade, situação, estimativa original e estimativas de desenvolvimento/revisão/testes, usando a configuração já salva");
+        .WithSummary("Busca em lote (JQL key in (...)) prioridade, situação e estimativas de desenvolvimento/revisão/testes, usando a configuração já salva");
 
         grupo.MapGet("/status", async (bool forcarAtualizacao) =>
         {

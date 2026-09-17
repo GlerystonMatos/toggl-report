@@ -9,8 +9,6 @@ internal sealed class CamposIssueBrutaJira
 
     public StatusBrutoJira? Status { get; set; }
 
-    public decimal? Timeoriginalestimate { get; set; }
-
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? CamposExtras { get; set; }
 }

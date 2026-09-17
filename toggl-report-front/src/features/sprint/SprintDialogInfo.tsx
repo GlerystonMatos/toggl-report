@@ -317,9 +317,7 @@ export function SprintDialogInfo({ aberto, onFechar, cabecalho, categorias, resp
                                 Jira: conexão — "Estimativa do desenvolvimento" (DEV), "Estimativa da revisão" (REV)
                                 e "Estimativa dos testes" (QA); sem esse campo configurado para aquele grupo, sem
                                 integração do Jira ou sem a tarefa encontrada, o PRE daquele grupo específico fica
-                                "–" — os três grupos são independentes entre si. Só o tooltip do PRE de DEV mostra
-                                também a "Estimativa original" (campo nativo do Jira, ligado à issue inteira, não a
-                                um grupo). PRE e REA usam a mesma cor de destaque quando têm valor; se o tempo
+                                "–" — os três grupos são independentes entre si. PRE e REA usam a mesma cor de destaque quando têm valor; se o tempo
                                 realizado (REA) ultrapassa o PRE daquele mesmo grupo, o REA fica em vermelho (mesmo
                                 tom de alerta usado no resto do Sprint) e o tooltip avisa o excesso — só ocorre
                                 quando há PRE real para aquele grupo.
