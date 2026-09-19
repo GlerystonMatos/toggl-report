@@ -63,10 +63,14 @@ export function SprintDialogInfo({ aberto, onFechar, cabecalho, categorias, resp
                                     Capacidade (CT) = TD × nº de colaboradores selecionados = {cabecalho.ct} h
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary">
-                                    Ao lado da Capacidade, o cabeçalho mostra "Pendentes" ({cabecalho.tarefasPendentes}) —
-                                    quantidade de descrições distintas (tarefas, sem contar linhas de tag) neste sprint —
-                                    e "Concluído" ({cabecalho.tarefasConcluidas}): esse contador ainda não foi
-                                    implementado e sempre mostra 0.
+                                    Ao lado da Capacidade, o cabeçalho mostra "Pendentes" ({cabecalho.tarefasPendentes})
+                                    e "Concluído" ({cabecalho.tarefasConcluidas}): quantidade de descrições distintas
+                                    (tarefas, sem contar linhas de tag) cujo status atual no Jira está nas listas
+                                    configuráveis "Concluído"/"Ignorado" (Configurações → Jira: status e cores,
+                                    mostradas em texto logo abaixo desta tela) — uma descrição sem status na lista
+                                    "Concluído" conta como "Pendentes", a menos que esteja na lista "Ignorado" (aí não
+                                    conta em nenhum dos dois); sem nenhuma das duas listas configuradas, todas as
+                                    descrições contam como "Pendentes".
                                 </Typography>
                             </Stack>
                         ) : undefined}
@@ -82,12 +86,16 @@ export function SprintDialogInfo({ aberto, onFechar, cabecalho, categorias, resp
                                 verde quando positivo (ainda sobra), sem cor quando exatamente zero.
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                                Quantidade pendentes conta as descrições distintas (linhas de descrição, não de tag) em
-                                que esse colaborador aparece em algum grupo; Quantidade concluídas, assim como o
-                                "Concluído" do cabeçalho, ainda não é calculada e sempre mostra 0. A linha "Total" no
-                                rodapé soma as duas colunas de todos os colaboradores. Tempo realizado/disponível são
-                                mostrados com precisão de segundos (ex.: "12h34m56s"), diferente do PRE/REA da grid de
-                                tarefas, que arredondam para baixo em horas cheias (ex.: "12h").
+                                Quantidade pendentes/concluídas usa um cálculo diferente do "Pendentes"/"Concluído" do
+                                cabeçalho: conta, por grupo (DEV/REV/QA) em que esse colaborador aparece numa linha de
+                                descrição, a mesma classificação "Pendente"/"Concluído" mostrada na coluna Situação da
+                                grid (ver aba "Como ler cada coluna") — quem ocupa o grupo responsável pelo status
+                                atual conta como pendente, os demais grupos com colaborador da mesma linha contam como
+                                concluído; um colaborador em dois grupos da mesma linha (ex.: DEV e REV) pode contar
+                                uma vez em cada coluna. Linhas de tag nunca contam. A linha "Total" no rodapé soma as
+                                duas colunas de todos os colaboradores. Tempo realizado/disponível são mostrados com
+                                precisão de segundos (ex.: "12h34m56s"), diferente do PRE/REA da grid de tarefas, que
+                                arredondam para baixo em horas cheias (ex.: "12h").
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
                                 Um botão "+"/"–" ao lado do título "Colaboradores" recolhe/expande essa tabela; o

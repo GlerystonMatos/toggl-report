@@ -111,18 +111,13 @@ Jira/            ClienteApiJira (HTTP Basic email:apiToken, normaliza a URL do d
   frente é: trocar a constante, renomear o arquivo real manualmente, sem manter
   nenhuma lógica de compatibilidade no código.
 - **Configurações gerais consolidadas em `ConfiguracoesGerais.ini`** (desde
-  2026-09-15): `JiraConfig.ini`/`TogglSprintCategorias.ini`/
-  `TogglSprintResponsabilidade.ini` viraram seções (`[Jira]`/`[SprintCategorias]`/
-  `[SprintResponsabilidade]`) de um arquivo só (carregadores recebem só
-  `caminhoConsolidado`; sem a seção, cada um cai no padrão do próprio modelo). A
-  migração lazy desses três arquivos legados para o consolidado já foi concluída em
-  produção e o fallback de leitura foi removido do código; os três arquivos
-  ficaram órfãos e foram apagados manualmente da pasta `dados/`. `TogglUsuarios.ini`/
-  `JiraCores.ini` continuam separados. Desde 2026-09-16, uma 4ª seção,
-  `[JiraTogglMapeamento]` (`ConfiguracaoMapeamentoJiraToggl`/
-  `CarregadorConfiguracaoMapeamentoJiraTogglIni`), guarda o mapeamento nome do Jira →
-  `Chave` de usuário Toggl (ver bloco Jira do Sprint) — nasceu direto no arquivo
-  consolidado, sem arquivo legado próprio a migrar.
+  2026-09-15): `[Jira]`/`[SprintCategorias]`/`[SprintResponsabilidade]`/
+  `[JiraTogglMapeamento]` (a 4ª, desde 2026-09-16, mapeia nome do Jira → `Chave` de
+  usuário Toggl, ver bloco Jira do Sprint) são seções de um arquivo só
+  (carregadores recebem só `caminhoConsolidado`; sem a seção, cada um cai no padrão
+  do próprio modelo) — sem fallback de leitura para os antigos arquivos avulsos
+  (`JiraConfig.ini` etc.), já migrados e apagados de produção. `TogglUsuarios.ini`/
+  `JiraCores.ini` continuam separados.
 
 ### Sprint — regras de negócio (não óbvias, decididas com o usuário)
 
@@ -180,19 +175,33 @@ ct         = td * nº de colaboradores selecionados   # capacidade total
 ```
 Não é "70% do total" nem "70% de 70%" — só a fórmula acima é válida.
 
-**Totalizadores Pendentes/Concluídas** (`CabecalhoSprint`/`LinhaColaboradorSprint`,
-desde 2026-09-17): configuráveis via duas listas globais de status do Jira —
+**Totalizadores do cabeçalho "Pendentes"/"Concluído"** (`CabecalhoSprint`, desde
+2026-09-17): duas listas globais de status do Jira —
 `ConfiguracaoStatusFinalSprint.StatusConcluido`/`StatusIgnorado` (seção
 `[SprintStatusFinal]` de `ConfiguracoesGerais.ini`, editadas em Configurações →
 Jira: status e cores, junto das listas DEV/REV/QA — **mutuamente exclusivas**: um
 status marcado numa lista some das opções da outra na UI, e o backend rejeita com
-400 se as duas chegarem com um status em comum). **Concluídas** = descrições
-distintas (nunca linha de tag) cujo `Situacao` está em `StatusConcluido`;
-**Pendentes** = descrições distintas cujo `Situacao` não está em `StatusConcluido`
-nem em `StatusIgnorado` — uma descrição em `StatusIgnorado` não conta em nenhum dos
-dois. Sem nenhuma das duas listas preenchida (padrão), o comportamento é idêntico ao
-anterior: `Concluídas = 0`, `Pendentes` = todas as descrições distintas. Mesmo
-cálculo por colaborador, restrito às descrições em que ele aparece.
+400 se as duas chegarem com um status em comum; exibidas também, só leitura, na
+etapa **Consultar** do Sprint (`ConsultaPanel`, mesmo padrão de texto de
+agrupamento/tags detalhadas/categorias/responsabilidade já exibidos ali — desde
+2026-09-19; antes, 2026-09-18, ficavam erradas na tela de Acompanhamento, perto dos
+totalizadores). **Concluídas** = descrições distintas (nunca linha de tag) cujo `Situacao` está em
+`StatusConcluido`; **Pendentes** = descrições distintas cujo `Situacao` não está em
+`StatusConcluido` nem em `StatusIgnorado` — uma descrição em `StatusIgnorado` não
+conta em nenhum dos dois. Sem nenhuma das duas listas preenchida (padrão), todas as
+descrições contam como `Pendentes`.
+
+**Totalizadores "Quantidade pendentes/concluídas" por colaborador**
+(`LinhaColaboradorSprint`, corrigido em 2026-09-18): cálculo **independente** do
+cabeçalho acima — não usa `StatusConcluido`/`StatusIgnorado`, reaproveita a mesma
+classificação Pendente/Concluído **por grupo** (DEV/REV/QA) da coluna "Situação" da
+grid (`GrupoResponsavelStatus`/`SituacaoSemGrupoResponsavel`, ver "Responsabilidade
+por status" abaixo) — cada grupo que o colaborador ocupa numa linha de descrição
+conta à parte, então DEV e REV da mesma linha podem dar resultados diferentes para
+o mesmo colaborador (ex.: DEV pendente, REV concluído). Antes contava por descrição
+inteira, sem olhar o grupo — bug real: dois colaboradores em grupos diferentes da
+mesma linha sempre contavam igual. Linhas de tag nunca contam, nos dois
+totalizadores.
 
 **Grid de tarefas**: uma linha por `(Chave, Agrupada)`, `Chave`/`Agrupada` vindos de
 `ChaveAgrupamento` (mesma regra descricao/tag/ambos do Gant, usando
@@ -215,14 +224,23 @@ recebe tag-agg).
   — sem integração ou issue não encontrada, badge de Prioridade e de Situação caem
   em "Nenhuma" (cinza) e PRE cai em "–" em cada grupo sem campo configurado; nunca
   editáveis nem persistidos pelo app.
-- **Duplo clique numa linha da grid** abre `SprintDialogDetalheLinha` — mesmas
-  cores/badges da grid, valores por extenso em vez de abreviados, grupos DEV/REV/QA
-  em **colunas de uma `Table`** (atributo é linha, grupo é coluna — desde
-  2026-09-17, antes era uma `Stack` por grupo). Não é um padrão novo de modal, só
-  reaproveita `Dialog`/`DialogTitle`/`DialogContent`/`DialogActions` do MUI, como o
+- **Duplo clique numa linha da grid** abre `SprintDialogDetalheLinha` (`maxWidth`
+  "md", desde 2026-09-18 — antes "sm", para caber a descrição completa) — mesmas
+  cores/badges da grid, descrição sempre por completo (sem truncar — só a grid
+  trunca), valores por extenso em vez de abreviados, grupos DEV/REV/QA em
+  **colunas de uma `Table`** (atributo é linha, grupo é coluna — desde 2026-09-17,
+  antes era uma `Stack` por grupo). Não é um padrão novo de modal, só reaproveita
+  `Dialog`/`DialogTitle`/`DialogContent`/`DialogActions` do MUI, como o
   `SprintDialogInfo`. Clique no checkbox ou no link do código continua com
-  `stopPropagation`, não abre o modal. Descrição truncada em 30 caracteres + "…"
-  (grid e modal, `truncarDescricao`), tooltip sempre com o texto completo.
+  `stopPropagation`, não abre o modal.
+- **Descrição da grid trunca de forma responsiva** (`SprintView`/
+  `SprintLinhaTarefa`, desde 2026-09-18 — antes 30 caracteres fixos,
+  `truncarDescricao`, removida): sem limite de caracteres fixo — `ResizeObserver`
+  no container da tabela mede a largura já ocupada pelas colunas vizinhas (fixas) e
+  calcula o que sobra para a coluna Descrição a cada resize; CSS
+  (`overflow:hidden`/`text-overflow:ellipsis`) corta com "…" só quando o texto não
+  cabe nesse espaço, mostrando o máximo possível sem gerar rolagem horizontal.
+  Tooltip da grid sempre com o texto completo.
 - Frontend detecta **duplicidade visual** (`calcularColisaoPosicao`, cliente): quando
   a mesclagem abre >1 linha de descrição para a mesma `(codigo, descricao)` por dois
   colaboradores disputarem a mesma posição, Código+Descrição ficam em vermelho —
@@ -329,9 +347,23 @@ status da tarefa é **"Status"** (renomeada de "Situação"; a "Situação" por 
 DEV/REV/QA — Pendente/Concluído — continua com esse nome, é outro conceito). O
 antigo botão "Buscar por descrição" foi removido — a busca por código/descrição
 virou o **primeiro campo dentro do painel "Filtros"** (não é mais um recurso
-independente), seguida dos filtros múltiplos de Prioridade/Status/Colaborador
-(sobre os dados já carregados, sem nova consulta) e, por fim, o checkbox **"Inverter
-filtros"** (antes do botão "Limpar") — quando marcado, os 3 filtros de seleção
+independente), seguida dos filtros múltiplos de Prioridade/Status/Colaborador e,
+desde 2026-09-19, **Situação (DEV/REV/QA)** — um 4º filtro, distinto do "Status"
+(esse filtra o texto bruto do Jira; o novo filtra a mesma classificação
+Pendente/Concluído/Tag por bloco, `situacaoGrupo` em `calculos.ts`, reaproveitada
+da coluna "Situação" da grid — linhas de tag entram na comparação normalmente,
+com valor "Tag"; não o `!linha.agrupada` de Prioridade/Status). **Combinado com o
+Colaborador** (corrigido no mesmo dia — a 1ª versão comparava "qualquer grupo da
+linha", ignorando de quem era o grupo): sem colaborador selecionado, uma linha
+atende se **qualquer** grupo DEV/REV/QA com colaborador bater com a situação
+escolhida; com colaborador(es) selecionado(s), só conta o(s) grupo(s) **daquele(s)
+colaborador(es)** — por isso os dois filtros usam um bloco combinado dedicado
+(não dois `if` encadeados) quando ambos estão preenchidos, já que inverter cada um
+separadamente dá falso positivo (a linha já teria sido excluída pelo filtro de
+Colaborador antes de "Inverter filtros" conseguir agir sobre a Situação). O campo
+tem `helperText` dinâmico avisando qual dos dois comportamentos está ativo. Todos
+sobre os dados já carregados, sem nova consulta, e, por fim, o checkbox **"Inverter
+filtros"** (antes do botão "Limpar") — quando marcado, os 4 filtros de seleção
 passam a **excluir** as linhas com os valores escolhidos em vez de restringir a
 elas (a busca por texto nunca é afetada pela inversão, sempre inclui). Botão
 "Limpar" reseta busca + filtros + inversão juntos. Ordenação clicável nos

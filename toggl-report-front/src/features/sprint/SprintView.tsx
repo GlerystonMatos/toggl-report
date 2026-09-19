@@ -2,7 +2,6 @@ import { CORES } from '../../theme';
 import type { ReactNode } from 'react';
 import { useSprint } from './useSprint';
 import { fecharSprint } from '../../api/sprintsApi';
-import { useEffect, useMemo, useState } from 'react';
 import { SprintDialogInfo } from './SprintDialogInfo';
 import { obterCoresJira } from '../../api/coresJiraApi';
 import { SprintLinhaTarefa } from './SprintLinhaTarefa';
@@ -12,12 +11,21 @@ import { SprintCardCapacidade } from './SprintCardCapacidade';
 import { CabecalhoView } from '../../components/CabecalhoView';
 import { SprintCardColaboradores } from './SprintCardColaboradores';
 import { SprintDialogDetalheLinha } from './SprintDialogDetalheLinha';
+import { obterStatusFinalSprint } from '../../api/statusFinalSprintApi';
 import { lerTachados, gravarTachados, idLinhaTarefa } from './tachados';
 import { DialogoConfirmacao } from '../../components/DialogoConfirmacao';
 import { EsqueletoCarregando } from '../../components/EsqueletoCarregando';
 import { BotaoComCarregamento } from '../../components/BotaoComCarregamento';
-import { GRUPOS, contarDigitos, ordemPrioridade, calcularColisaoPosicao } from './calculos';
-import type { Sprint, CategoriasSprint, ResponsabilidadeSprint, LinhaTarefaSprint } from '../../api/tipos';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { GRUPOS, contarDigitos, situacaoGrupo, ordemPrioridade, calcularColisaoPosicao } from './calculos';
+
+import type {
+    Sprint,
+    CategoriasSprint,
+    LinhaTarefaSprint,
+    StatusFinalSprint,
+    ResponsabilidadeSprint,
+} from '../../api/tipos';
 
 import {
     Box,
@@ -52,6 +60,9 @@ interface SprintViewProps {
 }
 
 const LARGURA_CELULA = '2.5rem';
+const INDICE_COLUNA_DESCRICAO = 4;
+const LARGURA_MINIMA_DESCRICAO = 100;
+const MARGEM_SEGURANCA_DESCRICAO = 4;
 
 export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categorias, responsabilidade, fechado = false, onFechado }: SprintViewProps): ReactNode {
     const [fechando, setFechando] = useState(false);
@@ -68,10 +79,14 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
     const [filtroPrioridades, setFiltroPrioridades] = useState<string[]>([]);
     const [coresStatus, setCoresStatus] = useState<Record<string, string>>({});
     const [filtroColaboradores, setFiltroColaboradores] = useState<string[]>([]);
+    const [filtroSituacaoGrupos, setFiltroSituacaoGrupos] = useState<string[]>([]);
     const [coresPrioridade, setCoresPrioridade] = useState<Record<string, string>>({});
+    const [statusFinal, setStatusFinal] = useState<StatusFinalSprint | null>(null);
     const [tachados, setTachados] = useState<Set<string>>(() => lerTachados(chaveSprint));
     const [ordenacao, setOrdenacao] = useState<{ campo: CampoOrdenacao; direcao: 'asc' | 'desc' } | null>(null);
     const [linhaDetalhe, setLinhaDetalhe] = useState<{ linha: LinhaTarefaSprint; codigoDuplicado: boolean } | null>(null);
+    const refTabela = useRef<HTMLTableElement>(null);
+    const [larguraDescricao, setLarguraDescricao] = useState<number | undefined>(undefined);
 
     useEffect(() => {
         obterCoresJira()
@@ -79,6 +94,9 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
                 setCoresStatus(dados.coresStatus);
                 setCoresPrioridade(dados.coresPrioridade);
             })
+            .catch(() => { });
+        obterStatusFinalSprint()
+            .then(setStatusFinal)
             .catch(() => { });
     }, []);
 
@@ -175,10 +193,21 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
         return Array.from(vistos).sort((a, b) => a.localeCompare(b, 'pt-BR'));
     }, [tarefas]);
 
+    const opcoesSituacaoGrupo = useMemo(() => {
+        const vistos = new Set<string>();
+        tarefas.forEach((linha) => {
+            (['dev', 'rev', 'qa'] as const).forEach((grupo) => {
+                if (linha[grupo].nomeExibicao) vistos.add(situacaoGrupo(linha, grupo));
+            });
+        });
+        return Array.from(vistos).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    }, [tarefas]);
+
     const filtrosVazios = termoBusca.trim() === ''
         && filtroPrioridades.length === 0
         && filtroSituacoes.length === 0
         && filtroColaboradores.length === 0
+        && filtroSituacaoGrupos.length === 0
         && !inverterFiltros;
 
     function limparFiltros(): void {
@@ -186,6 +215,7 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
         setFiltroPrioridades([]);
         setFiltroSituacoes([]);
         setFiltroColaboradores([]);
+        setFiltroSituacaoGrupos([]);
         setInverterFiltros(false);
     }
 
@@ -218,13 +248,38 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
                 ? lista.filter(({ linha }) => !linha.agrupada && !filtroSituacoes.includes(linha.situacao ?? NENHUMA))
                 : lista.filter(({ linha }) => !linha.agrupada && filtroSituacoes.includes(linha.situacao ?? NENHUMA));
         }
-        if (filtroColaboradores.length > 0) {
+        if (filtroColaboradores.length > 0 && filtroSituacaoGrupos.length > 0) {
+            // Combinado: a linha só atende se o MESMO grupo (DEV/REV/QA) tiver o colaborador
+            // selecionado E a situação selecionada — não basta um colaborador aparecer em algum
+            // grupo e a situação selecionada aparecer em outro grupo qualquer da mesma linha.
+            lista = inverterFiltros
+                ? lista.filter(({ linha }) =>
+                    (['dev', 'rev', 'qa'] as const).every((grupo) => {
+                        const nome = linha[grupo].nomeExibicao;
+                        return !(nome && filtroColaboradores.includes(nome) && filtroSituacaoGrupos.includes(situacaoGrupo(linha, grupo)));
+                    }),
+                )
+                : lista.filter(({ linha }) =>
+                    (['dev', 'rev', 'qa'] as const).some((grupo) => {
+                        const nome = linha[grupo].nomeExibicao;
+                        return !!nome && filtroColaboradores.includes(nome) && filtroSituacaoGrupos.includes(situacaoGrupo(linha, grupo));
+                    }),
+                );
+        } else if (filtroColaboradores.length > 0) {
             lista = inverterFiltros
                 ? lista.filter(({ linha }) =>
                     [linha.dev, linha.rev, linha.qa].every((bloco) => !bloco.nomeExibicao || !filtroColaboradores.includes(bloco.nomeExibicao)),
                 )
                 : lista.filter(({ linha }) =>
                     [linha.dev, linha.rev, linha.qa].some((bloco) => bloco.nomeExibicao && filtroColaboradores.includes(bloco.nomeExibicao)),
+                );
+        } else if (filtroSituacaoGrupos.length > 0) {
+            lista = inverterFiltros
+                ? lista.filter(({ linha }) =>
+                    (['dev', 'rev', 'qa'] as const).every((grupo) => !linha[grupo].nomeExibicao || !filtroSituacaoGrupos.includes(situacaoGrupo(linha, grupo))),
+                )
+                : lista.filter(({ linha }) =>
+                    (['dev', 'rev', 'qa'] as const).some((grupo) => linha[grupo].nomeExibicao && filtroSituacaoGrupos.includes(situacaoGrupo(linha, grupo))),
                 );
         }
 
@@ -236,9 +291,33 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
         }
 
         return lista;
-    }, [tarefasComId, termoBusca, filtroPrioridades, filtroSituacoes, filtroColaboradores, inverterFiltros, ordenacao]);
+    }, [tarefasComId, termoBusca, filtroPrioridades, filtroSituacoes, filtroColaboradores, filtroSituacaoGrupos, inverterFiltros, ordenacao]);
 
     const colaboradores = resultado?.colaboradores ?? [];
+
+    useLayoutEffect(() => {
+        const tabela = refTabela.current;
+        const container = tabela?.parentElement;
+        if (!tabela || !container) return;
+
+        function recalcularLarguraDescricao(): void {
+            const primeiraLinha = tabela!.tBodies[0]?.rows[0];
+            if (!primeiraLinha) return;
+
+            let larguraOutrasColunas = 0;
+            Array.from(primeiraLinha.cells).forEach((celula, indice) => {
+                if (indice !== INDICE_COLUNA_DESCRICAO) larguraOutrasColunas += celula.getBoundingClientRect().width;
+            });
+
+            const disponivel = Math.floor(container!.clientWidth - larguraOutrasColunas) - MARGEM_SEGURANCA_DESCRICAO;
+            setLarguraDescricao(Math.max(LARGURA_MINIMA_DESCRICAO, disponivel));
+        }
+
+        recalcularLarguraDescricao();
+        const observador = new ResizeObserver(recalcularLarguraDescricao);
+        observador.observe(container);
+        return () => observador.disconnect();
+    }, [tarefasFiltradas, larguraCodigo]);
 
     return (
         <Stack spacing={2}>
@@ -295,6 +374,24 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
                         onChange={(_evento, valor) => setFiltroColaboradores(valor)}
                         sx={{ minWidth: 220, flex: 1 }}
                         renderInput={(parametros) => <TextField {...parametros} label="Colaborador" placeholder="Todos" />} />
+                    <Autocomplete
+                        multiple
+                        size="small"
+                        options={opcoesSituacaoGrupo.filter((opcao) => !filtroSituacaoGrupos.includes(opcao))}
+                        value={filtroSituacaoGrupos}
+                        onChange={(_evento, valor) => setFiltroSituacaoGrupos(valor)}
+                        sx={{ minWidth: 220, flex: 1 }}
+                        renderInput={(parametros) => (
+                            <TextField
+                                {...parametros}
+                                label="Situação (DEV/REV/QA)"
+                                placeholder="Todas"
+                                helperText={
+                                    filtroColaboradores.length > 0
+                                        ? 'Avalia só o grupo do(s) colaborador(es) selecionado(s) acima'
+                                        : 'Sem colaborador selecionado, avalia qualquer grupo da linha'
+                                } />
+                        )} />
                     <FormControlLabel
                         control={<Checkbox checked={inverterFiltros} onChange={(e) => setInverterFiltros(e.target.checked)} />}
                         label="Inverter filtros" />
@@ -304,7 +401,7 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
                 </Stack>
             ) : undefined}
 
-            {cabecalho ? <SprintCardCapacidade cabecalho={cabecalho} /> : undefined}
+            {cabecalho ? <SprintCardCapacidade cabecalho={cabecalho} statusFinal={statusFinal} /> : undefined}
 
             {veioDoCache ? <AvisoCache /> : undefined}
 
@@ -323,6 +420,7 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
             {resultado && tarefasFiltradas.length > 0 ? (
                 <TableContainer sx={{ overflowX: 'auto' }}>
                     <Table
+                        ref={refTabela}
                         size="small"
                         sx={{
                             '& th, & td': { borderRight: 1, borderColor: 'divider', py: 0 },
@@ -393,6 +491,7 @@ export function SprintView({ chaveSprint, onVoltar, veioDoCache = false, categor
                                     onAlternarDestaque={alternarDestaque}
                                     onDuploClique={() => setLinhaDetalhe({ linha, codigoDuplicado })}
                                     larguraCodigo={larguraCodigo}
+                                    larguraDescricao={larguraDescricao}
                                     coresStatus={coresStatus}
                                     coresPrioridade={coresPrioridade}
                                     corTag={corTag} />

@@ -9,6 +9,7 @@ import { BotaoComCarregamento } from '../../components/BotaoComCarregamento';
 import type {
     Agrupamento,
     ConsultarResponse,
+    StatusFinalSprint,
     OrigemConsultaSprint,
 } from '../../api/tipos';
 
@@ -37,6 +38,7 @@ interface ConsultaPanelProps {
     tagsDetalhadas?: string[];
     categorias?: { dev: string[]; rev: string[]; qa: string[] };
     responsabilidade?: { statusDev: string[]; statusRev: string[]; statusQa: string[] };
+    statusFinal?: StatusFinalSprint;
     origemConsulta?: OrigemConsultaProps;
     bloqueado?: boolean;
     resultado: ConsultarResponse | null;
@@ -64,6 +66,7 @@ export function ConsultaPanel({
     tagsDetalhadas,
     categorias,
     responsabilidade,
+    statusFinal,
     origemConsulta,
     bloqueado = false,
     resultado,
@@ -139,6 +142,13 @@ export function ConsultaPanel({
                             <Typography variant="body2" color="text.secondary">DEV: {responsabilidade.statusDev.length > 0 ? responsabilidade.statusDev.join(', ') : '(nenhum)'}</Typography>
                             <Typography variant="body2" color="text.secondary">REV: {responsabilidade.statusRev.length > 0 ? responsabilidade.statusRev.join(', ') : '(nenhum)'}</Typography>
                             <Typography variant="body2" color="text.secondary">QA: {responsabilidade.statusQa.length > 0 ? responsabilidade.statusQa.join(', ') : '(nenhum)'}</Typography>
+                        </Stack>
+                    ) : undefined}
+                    {statusFinal !== undefined ? (
+                        <Stack spacing={0.25}>
+                            <Typography variant="body2" color="text.secondary">Status usados nos totalizadores Pendentes/Concluído:</Typography>
+                            <Typography variant="body2" color="text.secondary">Concluído: {statusFinal.statusConcluido.length > 0 ? statusFinal.statusConcluido.join(', ') : '(nenhum)'}</Typography>
+                            <Typography variant="body2" color="text.secondary">Ignorado: {statusFinal.statusIgnorado.length > 0 ? statusFinal.statusIgnorado.join(', ') : '(nenhum)'}</Typography>
                         </Stack>
                     ) : undefined}
 

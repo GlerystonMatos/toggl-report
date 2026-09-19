@@ -11,6 +11,7 @@ namespace RelatorioToggl.Sprint;
 public static class ServicoSprint
 {
     private static readonly Regex PadraoCodigo = new(@"^(TEL - \d+)(?: - (.+))?$", RegexOptions.Compiled);
+    private static readonly string[] GruposCategoria = { "dev", "rev", "qa" };
 
     public static List<string> ExtrairCodigosJira(Dictionary<string, List<RegistroTempoDto>> registrosPorUsuario)
     {
@@ -141,6 +142,8 @@ public static class ServicoSprint
         List<LinhaTarefaSprint> tarefas = new();
 
         Dictionary<string, string?> situacaoPorChave = new(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, int> pendentesPorColaborador = new();
+        Dictionary<string, int> concluidasPorColaborador = new();
 
         foreach (KeyValuePair<(string Chave, bool Agrupada), List<(string NomeExibicao, long[] Segundos)>> grupo in porGrupo)
         {
@@ -209,6 +212,20 @@ public static class ServicoSprint
 
             foreach (SlotColaborador[] linha in linhasEmConstrucao)
             {
+                if (!agrupada)
+                {
+                    for (int categoria = 0; categoria < 3; categoria++)
+                    {
+                        string? nomeExibicao = linha[categoria].NomeExibicao;
+                        if (nomeExibicao is null)
+                            continue;
+
+                        bool concluida = SituacaoGrupoConcluida(GruposCategoria[categoria], grupoResponsavelStatus, situacaoSemGrupoResponsavel);
+                        Dictionary<string, int> destino = concluida ? concluidasPorColaborador : pendentesPorColaborador;
+                        destino[nomeExibicao] = destino.GetValueOrDefault(nomeExibicao) + 1;
+                    }
+                }
+
                 tarefas.Add(new LinhaTarefaSprint(
                     codigo,
                     descricao,
@@ -267,14 +284,8 @@ public static class ServicoSprint
         {
             segundosRealizadosPorUsuario.TryGetValue(usuario.NomeExibicao, out long segundosRealizados);
 
-            List<string?> situacoesColaborador = segundosPorChave.Keys
-                .Where(k => !k.Agrupada && k.NomeExibicao == usuario.NomeExibicao)
-                .Select(k => k.Chave)
-                .Distinct()
-                .Select(chaveColaborador => situacaoPorChave.GetValueOrDefault(chaveColaborador))
-                .ToList();
-
-            (int pendentesColaborador, int concluidasColaborador) = ContarPendentesEConcluidas(situacoesColaborador, statusFinal);
+            int pendentesColaborador = pendentesPorColaborador.GetValueOrDefault(usuario.NomeExibicao);
+            int concluidasColaborador = concluidasPorColaborador.GetValueOrDefault(usuario.NomeExibicao);
 
             colaboradores.Add(new LinhaColaboradorSprint(
                 usuario.NomeExibicao,
@@ -348,6 +359,9 @@ public static class ServicoSprint
 
         return (null, responsabilidadeConfigurada);
     }
+
+    private static bool SituacaoGrupoConcluida(string grupo, string? grupoResponsavelStatus, bool situacaoSemGrupoResponsavel) =>
+        grupoResponsavelStatus is not null ? grupo != grupoResponsavelStatus : situacaoSemGrupoResponsavel;
 
     private static void AplicarFallbackJira(
         List<SlotColaborador[]> linhasEmConstrucao,

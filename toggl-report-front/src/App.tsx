@@ -22,6 +22,7 @@ import { BotaoComCarregamento } from './components/BotaoComCarregamento';
 import { ImportarDadosDialog } from './features/dados/ImportarDadosDialog';
 import { useCategoriasSprint } from './features/sprint/useCategoriasSprint';
 import { useUsuariosToggl } from './features/usuarios-toggl/useUsuariosToggl';
+import { useStatusFinalSprint } from './features/sprint/useStatusFinalSprint';
 import { ConfiguracoesView } from './features/configuracoes/ConfiguracoesView';
 import { useResponsabilidadeSprint } from './features/sprint/useResponsabilidadeSprint';
 
@@ -29,6 +30,7 @@ import type {
     Sprint,
     ParametrosGant,
     CategoriasSprint,
+    StatusFinalSprint,
     ConsultarResponse,
     ParametrosConfiguracao,
     ResponsabilidadeSprint,
@@ -78,6 +80,7 @@ function AppInterno({ onSair }: AppInternoProps): ReactNode {
     const [sprintSelecionado, setSprintSelecionado] = useState<Sprint | null>(null);
     const [parametrosSprint, setParametrosSprint] = useState<CategoriasSprint | null>(null);
     const [responsabilidadeSprint, setResponsabilidadeSprint] = useState<ResponsabilidadeSprint | null>(null);
+    const [statusFinalSprint, setStatusFinalSprint] = useState<StatusFinalSprint | null>(null);
     const [consultaSprintConcluida, setConsultaSprintConcluida] = useState<ConsultarResponse | null>(null);
 
     const consulta = useConsulta();
@@ -88,6 +91,7 @@ function AppInterno({ onSair }: AppInternoProps): ReactNode {
     const semUsuariosToggl = !carregandoUsuariosToggl && usuariosToggl.length === 0;
     const { carregar: carregarCategoriasSprint } = useCategoriasSprint();
     const { carregar: carregarResponsabilidadeSprint } = useResponsabilidadeSprint();
+    const { carregar: carregarStatusFinalSprint } = useStatusFinalSprint();
 
     const [, setVerificacaoInicialFeita] = useState(false);
     const [dialogoImportarAberto, setDialogoImportarAberto] = useState(false);
@@ -318,10 +322,11 @@ function AppInterno({ onSair }: AppInternoProps): ReactNode {
                                 onSelecionar={setSprintSelecionado}
                                 semUsuarios={semUsuariosToggl}
                                 onContinuar={() => {
-                                    Promise.all([carregarCategoriasSprint(), carregarResponsabilidadeSprint()])
-                                        .then(([config, responsabilidade]) => {
+                                    Promise.all([carregarCategoriasSprint(), carregarResponsabilidadeSprint(), carregarStatusFinalSprint()])
+                                        .then(([config, responsabilidade, statusFinal]) => {
                                             setParametrosSprint(config);
                                             setResponsabilidadeSprint(responsabilidade);
+                                            setStatusFinalSprint(statusFinal);
                                             setEtapaSprintAtiva(1);
                                         })
                                         .catch(() => { });
@@ -336,6 +341,7 @@ function AppInterno({ onSair }: AppInternoProps): ReactNode {
                                 tagsDetalhadas={parametrosSprint.tagsDetalhadas}
                                 categorias={{ dev: parametrosSprint.dev, rev: parametrosSprint.rev, qa: parametrosSprint.qa }}
                                 responsabilidade={responsabilidadeSprint ?? undefined}
+                                statusFinal={statusFinalSprint ?? undefined}
                                 origemConsulta={{ valor: consultaSprint.origem, onChange: consultaSprint.setOrigem }}
                                 bloqueado={sprintSelecionado.fechado}
                                 resultado={consultaSprint.resultado}

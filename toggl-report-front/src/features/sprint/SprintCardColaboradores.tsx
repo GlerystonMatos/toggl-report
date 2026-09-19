@@ -45,7 +45,7 @@ export function SprintCardColaboradores({ colaboradores }: SprintCardColaborador
                 </IconButton>
             </Stack>
             {expandido && (
-                <TableContainer sx={{ overflowX: 'auto' }}>
+                <TableContainer sx={{ overflowX: 'auto', mt: '0rem !important' }}>
                     <Table size="small">
                         <TableHead>
                             <TableRow>

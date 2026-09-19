@@ -5,7 +5,7 @@ import type { LinhaTarefaSprint } from '../../api/tipos';
 import { BadgeSigla } from '../../components/BadgeSigla';
 import { BadgeTexto, EtiquetaFixa } from './SprintBadges';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlineOutlined';
-import { GRUPOS, corDaSituacao, formatarCodigo, infoPrioridade, truncarDescricao } from './calculos';
+import { GRUPOS, corDaSituacao, formatarCodigo, infoPrioridade, situacaoGrupo } from './calculos';
 
 import {
     Box,
@@ -14,7 +14,6 @@ import {
     Stack,
     Button,
     Dialog,
-    Tooltip,
     Divider,
     TableRow,
     TableBody,
@@ -59,7 +58,7 @@ export function SprintDialogDetalheLinha({
     const codigo = linha.agrupada ? 'Tag' : formatarCodigo(linha.codigo, larguraCodigo);
 
     return (
-        <Dialog open={aberto} onClose={onFechar} maxWidth="sm" fullWidth>
+        <Dialog open={aberto} onClose={onFechar} maxWidth="md" fullWidth>
             <DialogTitle>
                 <Stack spacing={0.5}>
                     <Typography
@@ -67,14 +66,15 @@ export function SprintDialogDetalheLinha({
                         sx={codigoDuplicado ? { color: COR_PENDENTE, fontWeight: 700 } : undefined}>
                         {codigo}
                     </Typography>
-                    <Tooltip title={linha.descricao || '(sem descrição)'}>
-                        <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            sx={codigoDuplicado ? { color: COR_PENDENTE, fontWeight: 700 } : undefined}>
-                            {truncarDescricao(linha.descricao || '(sem descrição)')}
-                        </Typography>
-                    </Tooltip>
+                    <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{
+                            wordBreak: 'break-word',
+                            ...(codigoDuplicado ? { color: COR_PENDENTE, fontWeight: 700 } : {}),
+                        }}>
+                        {linha.descricao || '(sem descrição)'}
+                    </Typography>
                 </Stack>
             </DialogTitle>
             <DialogContent>
@@ -210,20 +210,12 @@ export function SprintDialogDetalheLinha({
                                     {GRUPOS.map((grupo) => {
                                         const bloco = linha[grupo.bloco];
                                         const temColaborador = bloco.nomeExibicao !== null;
+                                        const situacao = situacaoGrupo(linha, grupo.bloco);
+                                        const corSituacao = situacao === 'Tag' ? corTag : situacao === 'Concluído' ? COR_CONCLUIDO : COR_PENDENTE;
                                         return (
                                             <TableCell key={grupo.rotulo} align="center">
                                                 {temColaborador ? (
-                                                    linha.agrupada ? (
-                                                        <EtiquetaFixa texto="Tag" cor={corTag} />
-                                                    ) : linha.grupoResponsavelStatus ? (
-                                                        <EtiquetaFixa
-                                                            texto={grupo.bloco === linha.grupoResponsavelStatus ? 'Pendente' : 'Concluído'}
-                                                            cor={grupo.bloco === linha.grupoResponsavelStatus ? COR_PENDENTE : COR_CONCLUIDO} />
-                                                    ) : linha.situacaoSemGrupoResponsavel ? (
-                                                        <EtiquetaFixa texto="Concluído" cor={COR_CONCLUIDO} />
-                                                    ) : (
-                                                        <EtiquetaFixa texto="Pendente" cor={COR_PENDENTE} />
-                                                    )
+                                                    <EtiquetaFixa texto={situacao} cor={corSituacao} />
                                                 ) : (
                                                     <EtiquetaFixa texto="–" cor="text.primary" />
                                                 )}

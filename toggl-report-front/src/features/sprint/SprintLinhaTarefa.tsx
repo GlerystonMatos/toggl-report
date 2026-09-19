@@ -9,9 +9,9 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import {
     GRUPOS,
     corDaSituacao,
+    situacaoGrupo,
     formatarCodigo,
     infoPrioridade,
-    truncarDescricao,
     formatarHoraResumida,
 } from './calculos';
 
@@ -33,6 +33,7 @@ interface SprintLinhaTarefaProps {
     onAlternarDestaque: (id: string) => void;
     onDuploClique: () => void;
     larguraCodigo: number;
+    larguraDescricao?: number;
     coresStatus: Record<string, string>;
     coresPrioridade: Record<string, string>;
     corTag: string;
@@ -48,6 +49,7 @@ export function SprintLinhaTarefa({
     onAlternarDestaque,
     onDuploClique,
     larguraCodigo,
+    larguraDescricao,
     coresStatus,
     coresPrioridade,
     corTag,
@@ -136,7 +138,13 @@ export function SprintLinhaTarefa({
                     ) : undefined}
                 </Stack>
             </TableCell>
-            <TableCell sx={{ maxWidth: 360, px: 0.8 }}>
+            <TableCell
+                sx={{
+                    px: 0.8,
+                    ...(larguraDescricao !== undefined
+                        ? { width: larguraDescricao, maxWidth: larguraDescricao }
+                        : { maxWidth: 360 }),
+                }}>
                 <Tooltip title={linha.descricao}>
                     <Box
                         sx={{
@@ -150,13 +158,15 @@ export function SprintLinhaTarefa({
                                 ? { color: COR_PENDENTE, fontWeight: 700 }
                                 : {}),
                         }}>
-                        {truncarDescricao(linha.descricao || '(sem descrição)')}
+                        {linha.descricao || '(sem descrição)'}
                     </Box>
                 </Tooltip>
             </TableCell>
             {GRUPOS.map((grupo) => {
                 const bloco = linha[grupo.bloco];
                 const temColaborador = bloco.nomeExibicao !== null;
+                const situacao = situacaoGrupo(linha, grupo.bloco);
+                const corSituacao = situacao === 'Tag' ? corTag : situacao === 'Concluído' ? COR_CONCLUIDO : COR_PENDENTE;
                 const preSegundos = Math.round(bloco.preHoras * 3600);
                 const reaExcedePre = preSegundos > 0 && bloco.reaSegundos > preSegundos;
                 const tooltipPre = formatarDuracao(preSegundos);
@@ -199,17 +209,7 @@ export function SprintLinhaTarefa({
                         </TableCell>
                         <TableCell align="center" sx={{ px: 0.5, width: '1%', whiteSpace: 'nowrap' }}>
                             {temColaborador ? (
-                                linha.agrupada ? (
-                                    <EtiquetaFixa texto="Tag" cor={corTag} />
-                                ) : linha.grupoResponsavelStatus ? (
-                                    <EtiquetaFixa
-                                        texto={grupo.bloco === linha.grupoResponsavelStatus ? 'Pendente' : 'Concluído'}
-                                        cor={grupo.bloco === linha.grupoResponsavelStatus ? COR_PENDENTE : COR_CONCLUIDO} />
-                                ) : linha.situacaoSemGrupoResponsavel ? (
-                                    <EtiquetaFixa texto="Concluído" cor={COR_CONCLUIDO} />
-                                ) : (
-                                    <EtiquetaFixa texto="Pendente" cor={COR_PENDENTE} />
-                                )
+                                <EtiquetaFixa texto={situacao} cor={corSituacao} />
                             ) : (
                                 <EtiquetaFixa texto="–" cor="text.primary" />
                             )}
